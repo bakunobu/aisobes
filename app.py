@@ -33,6 +33,11 @@ def home():
     return render_template("index.html", status_log=status_log)
 
 
+@app.route("/ask", methods=["GET"])
+def ask():
+    return render_template("ask.html", status_log=status_log)
+
+
 @app.route("/chat", methods=["POST"])
 def chat():
     user_message = request.form["message"]
@@ -58,7 +63,7 @@ def chat():
         log_status(f"Received response: {assistant_message[:20]}...")
 
         return render_template(
-            "index.html",
+            "ask.html",
             status_log=status_log,
             response=assistant_message,
             user_message=user_message,
@@ -66,7 +71,7 @@ def chat():
 
     except Exception as e:
         log_status(f"Error: {str(e)}")
-        return render_template("index.html", status_log=status_log, error=str(e))
+        return render_template("ask.html", status_log=status_log, error=str(e))
 
 
 @app.route("/save", methods=["POST"])
@@ -87,7 +92,7 @@ def save():
         json.dump(data, f, indent=2)
 
     log_status(f"Saved response to {filename}")
-    return redirect(url_for("home"))
+    return redirect(url_for("ask"))
 
 
 if __name__ == "__main__":
