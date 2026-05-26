@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LLM Chat - Todo Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        .tabs a {
+            text-decoration: none;
+            padding: 10px 20px;
+            color: #333;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            background: #f5f5f5;
+        }
+        .tabs a.active {
+            background: #fff;
+            border-bottom: 2px solid #fff;
+            margin-bottom: -2px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .status-box {
+            height: 120px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 20px;
+            background: #fff;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .status-box ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 24px;
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .todo-container {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .todo-description {
+            font-size: 16px;
+            margin-bottom: 16px;
+            padding: 10px;
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .badge-in_progress {
+            background: #ffc107;
+            color: #333;
+        }
+        .badge-done {
+            background: #28a745;
+        }
+        .task-list {
+            list-style: none;
+            padding-left: 0;
+        }
+        .task-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            background: #fafafa;
+        }
+        .task-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+        .task-title {
+            font-weight: bold;
+            font-size: 15px;
+        }
+        .task-desc {
+            color: #555;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        .subtask-list {
+            list-style: none;
+            padding-left: 20px;
+            margin-top: 8px;
+        }
+        .subtask-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 0;
+            border-top: 1px solid #eee;
+            font-size: 13px;
+        }
+        .subtask-title {
+            flex: 1;
+        }
+        .subtask-desc {
+            color: #777;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .error {
+            color: #dc3545;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .saved-path {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="tabs">
+        <a href="/">Status</a>
+        <a href="/ask">Ask</a>
+        <a href="/todo" class="active">Todo</a>
+    </div>
+
+    <h1>Todo Generator</h1>
+
+    <div class="status-box">
+        <h3>Status Log</h3>
+        <ul>
+            {% for status in status_log %}
+                <li>{{ status }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <form action="/todo" method="post">
+        <textarea name="idea" placeholder="Enter your idea or problem statement..." required>{% if todo_data %}{{ todo_data.description }}{% endif %}</textarea>
+        <div style="margin-top:10px;">
+            <button type="submit">Generate Todo</button>
+            <button type="button" onclick="location.href='/todo';" style="background:#6c757d;">Clear</button>
+        </div>
+    </form>
+
+    {% if error %}
+        <div class="error">
+            <strong>Error:</strong> {{ error }}
+        </div>
+    {% endif %}
+
+    {% if todo_data %}
+        <div class="todo-container">
+            <div class="todo-description">
+                <strong>Goal:</strong> {{ todo_data.description }}
+                <span class="badge badge-{{ todo_data.status }}">{{ todo_data.status }}</span>
+            </div>
+
+            {% if todo_data.tasks %}
+                <ul class="task-list">
+                    {% for task in todo_data.tasks %}
+                        <li class="task-item">
+                            <div class="task-header">
+                                <span class="task-title">{{ task.title }}</span>
+                                <span class="badge badge-{{ task.status }}">{{ task.status }}</span>
+                            </div>
+                            {% if task.description %}
+                                <div class="task-desc">{{ task.description }}</div>
+                            {% endif %}
+
+                            {% if task.subtasks %}
+                                <ul class="subtask-list">
+                                    {% for subtask in task.subtasks %}
+                                        <li class="subtask-item">
+                                            <span class="subtask-title">{{ subtask.title }}</span>
+                                            {% if subtask.description %}
+                                                <span class="subtask-desc">— {{ subtask.description }}</span>
+                                            {% endif %}
+                                            <span class="badge badge-{{ subtask.status }}">{{ subtask.status }}</span>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+            {% if todo_data._saved_to %}
+                <div class="saved-path">Saved to: {{ todo_data._saved_to }}</div>
+            {% endif %}
+        </div>
+    {% endif %}
+</body>
+</html>

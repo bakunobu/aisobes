@@ -5,6 +5,8 @@ import requests
 from dotenv import dotenv_values
 from flask import Flask, redirect, render_template, request, url_for
 
+from utils import generate_todo
+
 app = Flask(__name__)
 
 # Load config
@@ -93,6 +95,32 @@ def save():
 
     log_status(f"Saved response to {filename}")
     return redirect(url_for("ask"))
+
+
+@app.route("/todo", methods=["GET", "POST"])
+def todo():
+    todo_data = None
+    error = None
+
+    if request.method == "POST":
+        idea = request.form.get("idea", "").strip()
+        if not idea:
+            error = "Please enter an idea or problem statement."
+        else:
+            log_status(f"Generating todo for: {idea[:40]}...")
+            try:
+                todo_data = generate_todo(idea)
+                log_status("Todo generated successfully")
+            except Exception as exc:
+                log_status(f"Todo generation failed: {exc}")
+                error = str(exc)
+
+    return render_template(
+        "todo.html",
+        status_log=status_log,
+        todo_data=todo_data,
+        error=error,
+    )
 
 
 if __name__ == "__main__":
