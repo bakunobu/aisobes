@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LLM Chat - Todo Generator</title>
+    <title>LLM Chat - Todo</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -42,124 +42,157 @@
             border-radius: 4px;
             font-size: 13px;
         }
-        .status-box ul {
-            margin: 0;
-            padding-left: 20px;
-        }
-        form {
+        .status-box ul { margin: 0; padding-left: 20px; }
+
+        .forms-row {
+            display: flex;
+            gap: 20px;
             margin-bottom: 20px;
+        }
+        .form-card {
+            flex: 1;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 16px;
+        }
+        .form-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 15px;
+            color: #333;
         }
         textarea {
             width: 100%;
-            height: 100px;
+            height: 80px;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 4px;
             font-family: Arial, sans-serif;
             font-size: 14px;
             box-sizing: border-box;
+            resize: vertical;
+        }
+        input[type="file"] {
+            font-size: 13px;
+            margin-bottom: 8px;
         }
         button {
-            padding: 10px 24px;
+            padding: 8px 20px;
             background: #007bff;
             color: #fff;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
         }
-        button:hover {
-            background: #0056b3;
+        button:hover { background: #0056b3; }
+        button.secondary {
+            background: #6c757d;
         }
-        .todo-container {
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-        .todo-description {
-            font-size: 16px;
-            margin-bottom: 16px;
-            padding: 10px;
-            background: #e7f3ff;
-            border-left: 4px solid #007bff;
-            border-radius: 4px;
-        }
-        .badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 12px;
-            font-weight: bold;
-            color: #fff;
-        }
-        .badge-in_progress {
-            background: #ffc107;
-            color: #333;
-        }
-        .badge-done {
+        button.secondary:hover { background: #5a6268; }
+        button.download {
             background: #28a745;
         }
-        .task-list {
-            list-style: none;
-            padding-left: 0;
-        }
-        .task-item {
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
-            margin-bottom: 12px;
-            padding: 12px 16px;
-            background: #fafafa;
-        }
-        .task-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 6px;
-        }
-        .task-title {
-            font-weight: bold;
-            font-size: 15px;
-        }
-        .task-desc {
-            color: #555;
-            font-size: 13px;
-            margin-bottom: 8px;
-        }
-        .subtask-list {
-            list-style: none;
-            padding-left: 20px;
-            margin-top: 8px;
-        }
-        .subtask-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 6px 0;
-            border-top: 1px solid #eee;
-            font-size: 13px;
-        }
-        .subtask-title {
-            flex: 1;
-        }
-        .subtask-desc {
-            color: #777;
-            font-size: 12px;
-            margin-left: 10px;
-        }
+        button.download:hover { background: #218838; }
+
         .error {
             color: #dc3545;
             background: #f8d7da;
             border: 1px solid #f5c6cb;
             padding: 12px;
             border-radius: 4px;
-            margin-top: 10px;
+            margin-bottom: 16px;
+        }
+
+        /* --- Three-level hierarchy --- */
+        .hierarchy {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            margin-top: 8px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .toolbar h2 { margin: 0; font-size: 18px; }
+
+        /* Level 1: Root description */
+        .level-root {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 16px;
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+        .level-root .desc { flex: 1; font-size: 15px; }
+        .level-root .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .badge-in_progress { background: #ffc107; color: #333; }
+        .badge-done { background: #28a745; }
+
+        /* Level 2: Tasks */
+        .task-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            background: #fafafa;
+        }
+        .task-card.disabled { opacity: 0.55; pointer-events: none; }
+        .task-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 16px;
+        }
+        .task-row .info { flex: 1; }
+        .task-row .title { font-weight: bold; font-size: 14px; }
+        .task-row .desc-text { color: #555; font-size: 13px; margin-top: 2px; }
+
+        /* Level 3: Subtasks */
+        .subtask-list {
+            list-style: none;
+            padding: 0 0 0 40px;
+            margin: 0 0 8px 0;
+        }
+        .subtask-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 12px;
+            border-top: 1px solid #eee;
+            font-size: 13px;
+        }
+        .subtask-item .info { flex: 1; }
+        .subtask-item .title { font-weight: 600; }
+        .subtask-item .desc-text { color: #777; font-size: 12px; }
+
+        /* Checkbox styling */
+        .cb {
+            width: 20px; height: 20px;
+            margin-top: 2px;
+            cursor: pointer;
+            accent-color: #28a745;
+            flex-shrink: 0;
         }
         .saved-path {
             font-size: 12px;
             color: #6c757d;
             margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid #eee;
         }
     </style>
 </head>
@@ -170,7 +203,7 @@
         <a href="/todo" class="active">Todo</a>
     </div>
 
-    <h1>Todo Generator</h1>
+    <h1>Todo</h1>
 
     <div class="status-box">
         <h3>Status Log</h3>
@@ -181,61 +214,140 @@
         </ul>
     </div>
 
-    <form action="/todo" method="post">
-        <textarea name="idea" placeholder="Enter your idea or problem statement..." required>{% if todo_data %}{{ todo_data.description }}{% endif %}</textarea>
-        <div style="margin-top:10px;">
-            <button type="submit">Generate Todo</button>
-            <button type="button" onclick="location.href='/todo';" style="background:#6c757d;">Clear</button>
+    <!-- --- Input forms --- -->
+    <div class="forms-row">
+        <div class="form-card">
+            <h3>Generate from idea</h3>
+            <form action="/todo" method="post">
+                <textarea name="idea" placeholder="Describe your idea or problem..."></textarea>
+                <div style="margin-top:8px;">
+                    <button type="submit">Generate</button>
+                </div>
+            </form>
         </div>
-    </form>
+        <div class="form-card">
+            <h3>Upload saved JSON</h3>
+            <form action="/todo" method="post" enctype="multipart/form-data">
+                <input type="file" name="file" accept=".json">
+                <div style="margin-top:8px;">
+                    <button type="submit" name="upload" value="1">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     {% if error %}
-        <div class="error">
-            <strong>Error:</strong> {{ error }}
-        </div>
+        <div class="error"><strong>Error:</strong> {{ error }}</div>
     {% endif %}
 
+    <!-- --- Three-level hierarchy --- -->
     {% if todo_data %}
-        <div class="todo-container">
-            <div class="todo-description">
-                <strong>Goal:</strong> {{ todo_data.description }}
+    <div class="hierarchy">
+        <div class="toolbar">
+            <h2>Task Hierarchy</h2>
+            <div>
+                <button class="download" onclick="downloadTodo()">⬇ Download JSON</button>
+                <button class="secondary" onclick="location.href='/todo';">Clear</button>
+            </div>
+        </div>
+
+        <!-- Level 1: Root description -->
+        <div class="level-root">
+            <input type="checkbox" class="cb"
+                   {% if todo_data.status == 'done' %}checked{% endif %}
+                   disabled
+                   title="Root status is derived from children">
+            <div class="desc">
+                <strong>{{ todo_data.description }}</strong>
                 <span class="badge badge-{{ todo_data.status }}">{{ todo_data.status }}</span>
             </div>
+        </div>
 
-            {% if todo_data.tasks %}
-                <ul class="task-list">
-                    {% for task in todo_data.tasks %}
-                        <li class="task-item">
-                            <div class="task-header">
-                                <span class="task-title">{{ task.title }}</span>
-                                <span class="badge badge-{{ task.status }}">{{ task.status }}</span>
-                            </div>
-                            {% if task.description %}
-                                <div class="task-desc">{{ task.description }}</div>
-                            {% endif %}
+        <!-- Level 2: Tasks -->
+        {% for task in todo_data.tasks %}{% set task_idx = loop.index0 %}
+        <div class="task-card" id="task-{{ task_idx }}">
+            <div class="task-row">
+                <input type="checkbox" class="cb task-cb"
+                       data-path="{{ [task_idx] | tojson }}"
+                       {% if task.status == 'done' %}checked{% endif %}
+                       onchange="toggleStatus(this, '{{ task.status }}')">
+                <div class="info">
+                    <div class="title">{{ task.title }}</div>
+                    {% if task.description %}
+                        <div class="desc-text">{{ task.description }}</div>
+                    {% endif %}
+                </div>
+                <span class="badge badge-{{ task.status }}">{{ task.status }}</span>
+            </div>
 
-                            {% if task.subtasks %}
-                                <ul class="subtask-list">
-                                    {% for subtask in task.subtasks %}
-                                        <li class="subtask-item">
-                                            <span class="subtask-title">{{ subtask.title }}</span>
-                                            {% if subtask.description %}
-                                                <span class="subtask-desc">— {{ subtask.description }}</span>
-                                            {% endif %}
-                                            <span class="badge badge-{{ subtask.status }}">{{ subtask.status }}</span>
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            {% endif %}
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
-
-            {% if todo_data._saved_to %}
-                <div class="saved-path">Saved to: {{ todo_data._saved_to }}</div>
+            <!-- Level 3: Subtasks -->
+            {% if task.subtasks %}
+            <ul class="subtask-list">
+                {% for sub in task.subtasks %}{% set sub_idx = loop.index0 %}
+                <li class="subtask-item">
+                    <input type="checkbox" class="cb subtask-cb"
+                           data-path="{{ [task_idx, sub_idx] | tojson }}"
+                           {% if sub.status == 'done' %}checked{% endif %}
+                           onchange="toggleStatus(this, '{{ sub.status }}')">
+                    <div class="info">
+                        <div class="title">{{ sub.title }}</div>
+                        {% if sub.description %}
+                            <div class="desc-text">{{ sub.description }}</div>
+                        {% endif %}
+                    </div>
+                    <span class="badge badge-{{ sub.status }}">{{ sub.status }}</span>
+                </li>
+                {% endfor %}
+            </ul>
             {% endif %}
         </div>
+        {% endfor %}
+
+        {% if saved_path %}
+            <div class="saved-path">Saved to: {{ saved_path }}</div>
+        {% endif %}
+    </div>
     {% endif %}
+
+    <script>
+    /**
+     * Toggle a task or subtask's status via AJAX.
+     * Enforces: parent cannot be done while subtasks are active.
+     */
+    async function toggleStatus(cb, currentStatus) {
+        const newStatus = cb.checked ? 'done' : 'in_progress';
+        const path = JSON.parse(cb.dataset.path);
+
+        // Optimistic revert — wait for server to confirm
+        cb.disabled = true;
+
+        try {
+            const resp = await fetch('/todo/toggle', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({path: path, status: newStatus})
+            });
+            const result = await resp.json();
+
+            if (!result.ok) {
+                // Revert checkbox
+                cb.checked = !cb.checked;
+                alert(result.error || 'Toggle failed');
+            } else {
+                // Reload to reflect cascaded status changes
+                location.reload();
+            }
+        } catch (err) {
+            cb.checked = !cb.checked;
+            alert('Network error: ' + err.message);
+        } finally {
+            cb.disabled = false;
+        }
+    }
+
+    function downloadTodo() {
+        window.location.href = '/todo/download';
+    }
+    </script>
 </body>
 </html>
