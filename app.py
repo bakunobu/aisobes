@@ -14,7 +14,7 @@ from flask import (
     url_for,
 )
 
-from utils import generate_todo
+from utils import generate_todo, refine_task
 
 app = Flask(__name__)
 
@@ -254,6 +254,75 @@ def todo_toggle():
     _save_current_todo()
 
     return jsonify({"ok": True, "status": target["status"]})
+
+
+@app.route("/todo/refine", methods=["POST"])
+def todo_refine():
+    """Break a task or subtask into finer-grained tasks via LLM."""
+    global current_todo, current_todo_path
+    if current_todo is None:
+        return jsonify({"ok": False, "error": "No active todo"}), 400
+
+    payload = request.get_json(silent=True) or {}
+    path = payload.get("path", [])      # [task_idx] or [task_idx, sub_idx]
+    hint = payload.get("hint", "").strip()
+
+    # --- Navigate to the target ---
+    if len(path) == 1:
+        # Top-level task
+        task_idx = path[0]
+        if task_idx < 0 or task_idx >= len(current_todo.get("tasks", [])):
+            return jsonify({"ok": False, "error": "Invalid task index"}), 400
+        target = current_todo["tasks"][task_idx]
+        is_subtask = False
+    elif len(path) == 2:
+        # Subtask inside a task
+        task_idx, sub_idx = path[0], path[1]
+        if task_idx < 0 or task_idx >= len(current_todo.get("tasks", [])):
+            return jsonify({"ok": False, "error": "Invalid task index"}), 400
+        parent_task = current_todo["tasks"][task_idx]
+        if sub_idx < 0 or sub_idx >= len(parent_task.get("subtasks", [])):
+            return jsonify({"ok": False, "error": "Invalid subtask index"}), 400
+        target = parent_task["subtasks"][sub_idx]
+        is_subtask = True
+    else:
+        return jsonify({"ok": False, "error": "Invalid path length"}), 400
+
+    # --- Call the LLM to refine ---
+    log_status(
+        f"Refining {'subtask' if is_subtask else 'task'}: {target['title'][:30]}..."
+    )
+    try:
+        new_tasks = refine_task(
+            title=target["title"],
+            description=target.get("description", ""),
+            hint=hint,
+        )
+        log_status(f"Refined into {len(new_tasks)} tasks")
+    except Exception as exc:
+        log_status(f"Refine failed: {exc}")
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+    # --- Splice into the todo tree ---
+    if is_subtask:
+        # Remove subtask from parent, insert new tasks after the parent
+        parent_task["subtasks"].pop(sub_idx)
+        # If parent now has no subtasks, reset status
+        if not parent_task["subtasks"]:
+            parent_task["status"] = "in_progress"
+        # Insert new tasks right after the parent task
+        current_todo["tasks"][task_idx + 1 : task_idx + 1] = new_tasks
+    else:
+        # Replace the original task with the refined tasks
+        current_todo["tasks"][task_idx : task_idx + 1] = new_tasks
+
+    # Structure changed — root can't be "done" anymore until everything is
+    current_todo["status"] = "in_progress"
+
+    # Persist
+    _save_current_todo()
+
+    return jsonify({"ok": True, "count": len(new_tasks)})
 
 
 @app.route("/todo/download", methods=["GET"])

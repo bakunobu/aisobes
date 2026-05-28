@@ -94,6 +94,45 @@
             background: #28a745;
         }
         button.download:hover { background: #218838; }
+        button.split {
+            background: #6f42c1;
+            font-size: 11px;
+            padding: 3px 10px;
+            margin-left: 6px;
+        }
+        button.split:hover { background: #5a32a3; }
+        button.split:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Inline refine form */
+        .refine-form {
+            display: none;
+            padding: 8px 16px 12px 16px;
+            border-top: 1px dashed #ddd;
+            background: #f0ebf8;
+        }
+        .refine-form.active { display: block; }
+        .refine-form input[type="text"] {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+            margin-bottom: 8px;
+        }
+        .refine-form .btn-row {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        .refine-form .btn-row button {
+            font-size: 12px;
+            padding: 5px 14px;
+        }
+        .subtask-item .refine-form {
+            margin-top: 6px;
+            margin-left: 0;
+        }
 
         .error {
             color: #dc3545;
@@ -278,6 +317,14 @@
                     {% endif %}
                 </div>
                 <span class="badge badge-{{ task.status }}">{{ task.status }}</span>
+                <button class="split" onclick="toggleRefineForm('refine-{{ task_idx }}')" title="Split into smaller tasks">⚡ Split</button>
+            </div>
+            <div class="refine-form" id="refine-{{ task_idx }}">
+                <input type="text" id="hint-{{ task_idx }}" placeholder="Optional hint (e.g. focus on DB layer)...">
+                <div class="btn-row">
+                    <button onclick="refineTask([{{ task_idx }}], 'hint-{{ task_idx }}')">Split</button>
+                    <button class="secondary" onclick="toggleRefineForm('refine-{{ task_idx }}')">Cancel</button>
+                </div>
             </div>
 
             <!-- Level 3: Subtasks -->
@@ -296,6 +343,14 @@
                         {% endif %}
                     </div>
                     <span class="badge badge-{{ sub.status }}">{{ sub.status }}</span>
+                    <button class="split" onclick="toggleRefineForm('refine-{{ task_idx }}-{{ sub_idx }}')" title="Promote and split into tasks">⚡ Split</button>
+                </li>
+                <li class="refine-form" id="refine-{{ task_idx }}-{{ sub_idx }}" style="border-top:none;">
+                    <input type="text" id="hint-{{ task_idx }}-{{ sub_idx }}" placeholder="Optional hint...">
+                    <div class="btn-row">
+                        <button onclick="refineTask([{{ task_idx }}, {{ sub_idx }}], 'hint-{{ task_idx }}-{{ sub_idx }}')">Split</button>
+                        <button class="secondary" onclick="toggleRefineForm('refine-{{ task_idx }}-{{ sub_idx }}')">Cancel</button>
+                    </div>
                 </li>
                 {% endfor %}
             </ul>
@@ -347,6 +402,54 @@
 
     function downloadTodo() {
         window.location.href = '/todo/download';
+    }
+
+    /**
+     * Show/hide the inline refine form for a given task/subtask.
+     */
+    function toggleRefineForm(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        // Close any other open refine forms first
+        document.querySelectorAll('.refine-form.active').forEach(f => {
+            if (f.id !== id) f.classList.remove('active');
+        });
+        el.classList.toggle('active');
+        if (el.classList.contains('active')) {
+            const input = el.querySelector('input[type="text"]');
+            if (input) setTimeout(() => input.focus(), 100);
+        }
+    }
+
+    /**
+     * Send a refine request to the server and reload on success.
+     */
+    async function refineTask(path, hintElemId) {
+        const hintInput = document.getElementById(hintElemId);
+        const hint = hintInput ? hintInput.value.trim() : '';
+
+        const form = hintInput ? hintInput.closest('.refine-form') : null;
+        const buttons = form ? form.querySelectorAll('button') : [];
+        buttons.forEach(b => b.disabled = true);
+
+        try {
+            const resp = await fetch('/todo/refine', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({path: path, hint: hint})
+            });
+            const result = await resp.json();
+
+            if (!result.ok) {
+                alert(result.error || 'Refine failed');
+                buttons.forEach(b => b.disabled = false);
+            } else {
+                location.reload();
+            }
+        } catch (err) {
+            alert('Network error: ' + err.message);
+            buttons.forEach(b => b.disabled = false);
+        }
     }
     </script>
 </body>

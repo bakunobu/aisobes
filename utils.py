@@ -46,6 +46,31 @@ JSON schema:
 }
 """
 
+REFINE_TASK_PROMPT = """You are a task decomposition expert. Given a task (or subtask) that is too coarse, break it down into 2-4 finer-grained main tasks, each with 1-4 subtasks.
+
+Rules:
+1. Each resulting task MUST have a "title", a one-sentence "description", and a "status" of "in_progress".
+2. Each task MUST include at least 1 subtask (a "subtasks" list with 1-4 entries). Every subtask also has "title", "description", "status": "in_progress".
+3. The breakdown should reflect the user's optional hint if provided.
+4. Output ONLY a JSON array of task objects. Do NOT wrap it in markdown fences. Do NOT include any other text.
+
+JSON schema for the array:
+[
+    {
+        "title": "<task title>",
+        "description": "<one-sentence description>",
+        "status": "in_progress",
+        "subtasks": [
+            {
+                "title": "<subtask title>",
+                "description": "<one-sentence subtask description>",
+                "status": "in_progress"
+            }
+        ]
+    }
+]
+"""
+
 
 # ---------------------------------------------------------------------------
 # Helper utilities
@@ -230,3 +255,95 @@ def generate_todo(
         todo_data["_saved_to"] = filename
 
     return todo_data
+
+
+def refine_task(
+    title: str,
+    description: str = "",
+    hint: str = "",
+    *,
+    prompt: Optional[str] = None,
+    credentials: Optional[dict] = None,
+    timeout: int = 60,
+) -> list[dict]:
+    """Break a coarse task/subtask into 2-4 finer-grained main tasks via LLM.
+
+    Parameters
+    ----------
+    title:
+        The title of the task/subtask to refine.
+    description:
+        The description of the task/subtask being refined.
+    hint:
+        Optional user instruction to guide the decomposition (e.g. "focus on
+        the caching layer").
+    prompt:
+        Custom system prompt.  Defaults to :data:`REFINE_TASK_PROMPT`.
+    credentials:
+        Dictionary with keys ``api_url``, ``api_key``, ``model``.
+        Loaded from ``.env`` when ``None``.
+    timeout:
+        API request timeout in seconds (default 60).
+
+    Returns
+    -------
+    list[dict]
+        A list of 2-4 task dicts, each with ``title``, ``description``,
+        ``status``, and ``subtasks``, conforming to the application's task
+        schema.  Guaranteed to be validated and non-empty.
+    """
+    creds = _load_credentials(credentials)
+    system_prompt = prompt if prompt is not None else REFINE_TASK_PROMPT
+
+    # Build the user message so the LLM knows exactly what to decompose
+    parts = [f"Task to refine: {title}"]
+    if description:
+        parts.append(f"Description: {description}")
+    if hint:
+        parts.append(f"Hint: {hint}")
+    user_message = "\n".join(parts)
+
+    # Call the LLM
+    response = requests.post(
+        url=creds["api_url"],
+        headers={"Authorization": f"Bearer {creds['api_key']}"},
+        json={
+            "model": creds["model"],
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+        },
+        timeout=timeout,
+    )
+    response.raise_for_status()
+
+    raw_content = response.json()["choices"][0]["message"]["content"]
+
+    # Parse the JSON array response
+    json_text = _extract_json(raw_content)
+    try:
+        parsed = json.loads(json_text)
+    except json.JSONDecodeError:
+        raise ValueError(
+            f"LLM did not return valid JSON for refine. Raw:\n{raw_content}"
+        ) from None
+
+    # The LLM should return an array — but sometimes it wraps in an object
+    if isinstance(parsed, dict) and "tasks" in parsed:
+        parsed = parsed["tasks"]
+    if not isinstance(parsed, list):
+        raise ValueError(
+            f"Expected a JSON array of tasks, got {type(parsed).__name__}"
+        )
+    if len(parsed) == 0:
+        raise ValueError("LLM returned an empty task list for refine")
+
+    # Validate each new task through the same normalisation
+    validated = []
+    for task in parsed:
+        wrapper = {"tasks": [task]}
+        wrapper = _validate_todo_structure(wrapper)
+        validated.append(wrapper["tasks"][0])
+
+    return validated
