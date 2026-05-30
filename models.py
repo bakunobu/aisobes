@@ -48,7 +48,8 @@ class Problem(db.Model):
     number_of_runs = db.Column(db.Integer, default=0)
     completed_runs = db.Column(db.Integer, default=0)
     interrupted_runs = db.Column(db.Integer, default=0)
-    total_time_spent = db.Column(db.Integer, default=0)  # seconds
+    total_time_spent = db.Column(db.Integer, default=0)  # actual tracked seconds
+    estimated_time = db.Column(db.Integer, default=0)  # estimated seconds
     is_completed = db.Column(db.Boolean, default=False)
     is_archived = db.Column(db.Boolean, default=False)
     is_deleted = db.Column(db.Boolean, default=False)  # soft delete
@@ -84,7 +85,8 @@ class Task(db.Model):
     problem_id = db.Column(db.Integer, db.ForeignKey("problems.id"), nullable=False)
     created = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     first_run = db.Column(db.DateTime, nullable=True)
-    total_time_spent = db.Column(db.Integer, default=0)  # seconds
+    total_time_spent = db.Column(db.Integer, default=0)  # actual tracked seconds
+    estimated_time = db.Column(db.Integer, default=0)  # estimated seconds
     is_completed = db.Column(db.Boolean, default=False)
     is_archived = db.Column(db.Boolean, default=False)
     is_deleted = db.Column(db.Boolean, default=False)
@@ -121,7 +123,8 @@ class Subtask(db.Model):
     task_id = db.Column(db.Integer, db.ForeignKey("tasks.id"), nullable=False)
     created = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     first_run = db.Column(db.DateTime, nullable=True)
-    total_time_spent = db.Column(db.Integer, default=0)  # seconds
+    total_time_spent = db.Column(db.Integer, default=0)  # actual tracked seconds
+    estimated_time = db.Column(db.Integer, default=0)  # estimated seconds
     is_completed = db.Column(db.Boolean, default=False)
     is_archived = db.Column(db.Boolean, default=False)
     is_deleted = db.Column(db.Boolean, default=False)
