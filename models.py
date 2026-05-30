@@ -11,7 +11,7 @@ All mutations (promote, split, merge) are recorded in ChangeLog.
 
 from datetime import datetime, timezone
 
-from app import db
+from extensions import db
 
 
 # ===========================================================================
