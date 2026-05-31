@@ -195,19 +195,10 @@ def decompose_approve():
     try:
         _save_plan_to_db(plan)
         flash("Plan saved to database.", "success")
-
-        # Keep plan in session so user can still download
-        session["plan"] = plan
+        return redirect(url_for("home"))
     except Exception as exc:
         flash(f"Database error: {exc}", "error")
-
-    plan_json = json.dumps(plan, indent=2, ensure_ascii=False)
-    return render_template(
-        "decompose.html",
-        idea="",
-        plan=plan,
-        plan_json=plan_json,
-    )
+        return redirect(url_for("decompose"))
 
 
 @app.route("/decompose/download")
