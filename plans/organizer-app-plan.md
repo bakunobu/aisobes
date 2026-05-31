@@ -103,6 +103,36 @@ ChangeLog
 ├── created         DATETIME
 ```
 
+### 2.9 User
+```
+User
+├── id              INTEGER PK
+├── name            TEXT NOT NULL
+├── email           TEXT NOT NULL UNIQUE
+├── password_hash   TEXT NOT NULL
+├── avatar          TEXT (nullable — URL or path to avatar image)
+├── role            TEXT DEFAULT 'member'  ('admin' | 'member')
+├── is_active       BOOLEAN DEFAULT TRUE
+├── last_login      DATETIME (nullable)
+├── created         DATETIME
+```
+
+### 2.10 UserEntityRole (polymorphic join)
+```
+UserEntityRole
+├── id              INTEGER PK
+├── user_id         INTEGER FK → User.id (NOT NULL)
+├── entity_type     TEXT  ('problem' | 'task' | 'subtask')
+├── entity_id       INTEGER (NOT NULL)
+├── role            TEXT  ('owner' | 'creator' | 'participant' | 'assignee')
+├── created         DATETIME
+└── UNIQUE (user_id, entity_type, entity_id, role)
+```
+
+A user can hold multiple roles on the same entity (e.g., both `creator` and `owner`).
+The `UserEntityRole` table follows the same polymorphic pattern as `ChangeLog`
+(`entity_type` + `entity_id`), keeping the design consistent.
+
 ---
 
 ## 3. Технологии

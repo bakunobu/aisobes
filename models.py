@@ -7,11 +7,74 @@ Hierarchy:
 
 Each level supports many-to-many tags.
 All mutations (promote, split, merge) are recorded in ChangeLog.
+
+Users can be assigned roles (owner, creator, participant, assignee) on any
+entity level via the polymorphic UserEntityRole table.
 """
 
 from datetime import datetime, timezone
 
 from extensions import db
+
+
+# ===========================================================================
+# User
+# ===========================================================================
+
+class User(db.Model):
+    __tablename__ = "users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(255), nullable=False, unique=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    avatar = db.Column(db.String(500), nullable=True)
+    role = db.Column(db.String(20), default="member")  # 'admin' | 'member'
+    is_active = db.Column(db.Boolean, default=True)
+    last_login = db.Column(db.DateTime, nullable=True)
+    created = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    entity_roles = db.relationship("UserEntityRole", back_populates="user", lazy="dynamic")
+
+    def __repr__(self):
+        return f"<User {self.id}: {self.name!r}>"
+
+
+# ===========================================================================
+# UserEntityRole — polymorphic join: user ↔ (Problem | Task | Subtask)
+# ===========================================================================
+
+class UserEntityRole(db.Model):
+    __tablename__ = "user_entity_roles"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    entity_type = db.Column(
+        db.String(20), nullable=False
+    )  # 'problem' | 'task' | 'subtask'
+    entity_id = db.Column(db.Integer, nullable=False)
+    role = db.Column(
+        db.String(20), nullable=False
+    )  # 'owner' | 'creator' | 'participant' | 'assignee'
+    created = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    user = db.relationship("User", back_populates="entity_roles")
+
+    # A user can hold multiple roles on the same entity (e.g. creator + owner).
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id", "entity_type", "entity_id", "role",
+            name="uq_user_entity_role",
+        ),
+    )
+
+    def __repr__(self):
+        return (
+            f"<UserEntityRole user={self.user_id} "
+            f"{self.entity_type}#{self.entity_id} as {self.role}>"
+        )
 
 
 # ===========================================================================
@@ -58,6 +121,13 @@ class Problem(db.Model):
     # Relationships
     tags = db.relationship("Tag", secondary="problem_tags", back_populates="problems")
     tasks = db.relationship("Task", back_populates="problem", lazy="dynamic")
+    user_roles = db.relationship(
+        "UserEntityRole",
+        primaryjoin="and_(Problem.id == foreign(UserEntityRole.entity_id), "
+                    "UserEntityRole.entity_type == 'problem')",
+        viewonly=True,
+        lazy="dynamic",
+    )
 
     def __repr__(self):
         return f"<Problem {self.id}: {self.description[:40]!r}>"
@@ -96,6 +166,13 @@ class Task(db.Model):
     problem = db.relationship("Problem", back_populates="tasks")
     tags = db.relationship("Tag", secondary="task_tags", back_populates="tasks")
     subtasks = db.relationship("Subtask", back_populates="task", lazy="dynamic")
+    user_roles = db.relationship(
+        "UserEntityRole",
+        primaryjoin="and_(Task.id == foreign(UserEntityRole.entity_id), "
+                    "UserEntityRole.entity_type == 'task')",
+        viewonly=True,
+        lazy="dynamic",
+    )
 
     def __repr__(self):
         return f"<Task {self.id} (problem={self.problem_id})>"
@@ -133,6 +210,13 @@ class Subtask(db.Model):
     # Relationships
     task = db.relationship("Task", back_populates="subtasks")
     tags = db.relationship("Tag", secondary="subtask_tags", back_populates="subtasks")
+    user_roles = db.relationship(
+        "UserEntityRole",
+        primaryjoin="and_(Subtask.id == foreign(UserEntityRole.entity_id), "
+                    "UserEntityRole.entity_type == 'subtask')",
+        viewonly=True,
+        lazy="dynamic",
+    )
 
     def __repr__(self):
         return f"<Subtask {self.id} (task={self.task_id})>"
