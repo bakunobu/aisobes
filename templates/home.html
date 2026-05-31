@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Organizer — Dashboard</title>
+    <style>
+        /* ===================================================================
+           Base & Layout
+           =================================================================== */
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        /* --- Tabs (shared style) --- */
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        .tabs a {
+            text-decoration: none;
+            padding: 10px 20px;
+            color: #333;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            background: #f5f5f5;
+        }
+        .tabs a.active {
+            background: #fff;
+            border-bottom: 2px solid #fff;
+            margin-bottom: -2px;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        /* --- Dashboard grid --- */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 3fr 2fr;
+            grid-template-rows: auto 1fr;
+            gap: 16px;
+        }
+        .dashboard > .card {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 16px;
+            overflow: hidden;
+        }
+
+        /* --- Card title bar --- */
+        .card-title {
+            font-size: 15px;
+            font-weight: bold;
+            color: #333;
+            margin: 0 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* ===================================================================
+           Block 1: Problem List (left, rows 1-2)
+           =================================================================== */
+        .problem-list {
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+        }
+        .problem-list .list-body {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 480px;
+        }
+        .problem-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        .problem-row:last-child { border-bottom: none; }
+        .problem-row .desc {
+            flex: 1;
+            color: #333;
+            font-weight: 500;
+        }
+        .problem-row .meta {
+            font-size: 11px;
+            color: #888;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .badge-p1 { background: #dc3545; }
+        .badge-p2 { background: #fd7e14; }
+        .badge-p3 { background: #ffc107; color: #333; }
+        .badge-p4 { background: #17a2b8; }
+        .badge-p5 { background: #6c757d; }
+        .badge-active { background: #28a745; }
+        .badge-done { background: #6c757d; }
+        .badge-archived { background: #adb5bd; }
+
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 11px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            background: #007bff;
+            color: #fff;
+        }
+        .btn-sm:hover { background: #0056b3; }
+
+        .list-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .list-toolbar input {
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 180px;
+        }
+
+        /* ===================================================================
+           Block 2: Countdown Timer (right-top)
+           =================================================================== */
+        .timer-block {
+            text-align: center;
+        }
+        .timer-display {
+            font-size: 52px;
+            font-weight: bold;
+            color: #333;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 2px;
+            margin: 8px 0;
+        }
+        .timer-label {
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 10px;
+            min-height: 18px;
+        }
+        .timer-controls {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+        .btn-timer {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .btn-start  { background: #28a745; }
+        .btn-start:hover  { background: #218838; }
+        .btn-pause  { background: #ffc107; color: #333; }
+        .btn-pause:hover  { background: #e0a800; }
+        .btn-reset  { background: #dc3545; }
+        .btn-reset:hover  { background: #c82333; }
+
+        /* ===================================================================
+           Block 3: Schedule (right-middle)
+           =================================================================== */
+        .schedule-block .schedule-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .schedule-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        .schedule-item:last-child { border-bottom: none; }
+        .schedule-item .info { flex: 1; }
+        .schedule-item .subtitle { font-weight: 600; }
+        .schedule-item .parent-info {
+            font-size: 11px;
+            color: #888;
+        }
+        .schedule-item .elapsed {
+            font-size: 12px;
+            color: #555;
+            font-family: 'Courier New', monospace;
+            white-space: nowrap;
+        }
+        .cb-sm {
+            width: 16px; height: 16px;
+            cursor: pointer;
+            accent-color: #28a745;
+            flex-shrink: 0;
+        }
+        .empty-state {
+            color: #aaa;
+            font-size: 13px;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        /* ===================================================================
+           Block 4: Log Window (bottom-left)
+           =================================================================== */
+        .log-block .log-body {
+            max-height: 180px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .log-entry {
+            display: flex;
+            gap: 10px;
+            padding: 4px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .log-entry .time {
+            color: #888;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .log-entry .msg { color: #333; }
+        .log-type-promote  { color: #6f42c1; font-weight: 600; }
+        .log-type-split    { color: #fd7e14; font-weight: 600; }
+        .log-type-merge    { color: #17a2b8; font-weight: 600; }
+        .log-type-complete  { color: #28a745; font-weight: 600; }
+        .log-type-archive  { color: #6c757d; font-weight: 600; }
+
+        /* ===================================================================
+           Block 5: Statistics (bottom-right)
+           =================================================================== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 12px;
+            text-align: center;
+        }
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-card .label {
+            font-size: 11px;
+            color: #888;
+            margin-top: 2px;
+        }
+        .stat-card.highlight .value { color: #28a745; }
+
+        /* ===================================================================
+           Responsive fallback
+           =================================================================== */
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            .problem-list { grid-row: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ================================================================= -->
+    <!--  Tabs                                                             -->
+    <!-- ================================================================= -->
+    <div class="tabs">
+        <a href="/" class="active">Home</a>
+        <a href="/ask">Ask</a>
+        <a href="/todo">Todo</a>
+        <a href="/decompose">Decompose</a>
+    </div>
+
+    <!-- ================================================================= -->
+    <!--  Dashboard Grid                                                   -->
+    <!-- ================================================================= -->
+    <div class="dashboard">
+
+        <!-- ============================================================= -->
+        <!--  BLOCK 1: Problem List                                        -->
+        <!-- ============================================================= -->
+        <div class="card problem-list">
+            <div class="card-title">📋 Problems</div>
+            <div class="list-toolbar">
+                <input type="text" placeholder="Filter problems..." disabled>
+                <button class="btn-sm" disabled>+ New</button>
+            </div>
+            <div class="list-body">
+                <!-- Placeholder rows -->
+                <div class="problem-row">
+                    <span class="desc">Refactor authentication module</span>
+                    <span class="meta">
+                        <span class="badge badge-p2">P2</span>
+                        <span class="badge badge-active">active</span>
+                        <span>5 tasks</span>
+                    </span>
+                    <button class="btn-sm" disabled>Open</button>
+                </div>
+                <div class="problem-row">
+                    <span class="desc">Build notification service</span>
+                    <span class="meta">
+                        <span class="badge badge-p3">P3</span>
+                        <span class="badge badge-active">active</span>
+                        <span>3 tasks</span>
+                    </span>
+                    <button class="btn-sm" disabled>Open</button>
+                </div>
+                <div class="problem-row">
+                    <span class="desc">Migrate database to PostgreSQL</span>
+                    <span class="meta">
+                        <span class="badge badge-p1">P1</span>
+                        <span class="badge badge-done">done</span>
+                        <span>8 tasks</span>
+                    </span>
+                    <button class="btn-sm" disabled>Open</button>
+                </div>
+                <div class="problem-row">
+                    <span class="desc">Redesign landing page</span>
+                    <span class="meta">
+                        <span class="badge badge-p4">P4</span>
+                        <span class="badge badge-active">active</span>
+                        <span>4 tasks</span>
+                    </span>
+                    <button class="btn-sm" disabled>Open</button>
+                </div>
+                <div class="problem-row">
+                    <span class="desc">Set up CI/CD pipeline</span>
+                    <span class="meta">
+                        <span class="badge badge-p3">P3</span>
+                        <span class="badge badge-archived">archived</span>
+                        <span>6 tasks</span>
+                    </span>
+                    <button class="btn-sm" disabled>Open</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================= -->
+        <!--  BLOCK 2: Countdown Timer                                     -->
+        <!-- ============================================================= -->
+        <div class="card timer-block">
+            <div class="card-title">⏱ Timer</div>
+            <div class="timer-display">00:00:00</div>
+            <div class="timer-label">No task selected</div>
+            <div class="timer-controls">
+                <button class="btn-timer btn-start" disabled>▶ Start</button>
+                <button class="btn-timer btn-pause" disabled>⏸ Pause</button>
+                <button class="btn-timer btn-reset" disabled>↺ Reset</button>
+            </div>
+        </div>
+
+        <!-- ============================================================= -->
+        <!--  BLOCK 3: Schedule (subtasks in progress)                     -->
+        <!-- ============================================================= -->
+        <div class="card schedule-block">
+            <div class="card-title">📅 In Progress</div>
+            <div class="schedule-list">
+                <!-- Placeholder items -->
+                <div class="schedule-item">
+                    <input type="checkbox" class="cb-sm" disabled>
+                    <div class="info">
+                        <div class="subtitle">Add JWT token refresh</div>
+                        <div class="parent-info">Task: Refactor authentication module</div>
+                    </div>
+                    <span class="elapsed">↻ 0:42:15</span>
+                </div>
+                <div class="schedule-item">
+                    <input type="checkbox" class="cb-sm" disabled>
+                    <div class="info">
+                        <div class="subtitle">Design email templates</div>
+                        <div class="parent-info">Task: Build notification service</div>
+                    </div>
+                    <span class="elapsed">↻ 1:03:50</span>
+                </div>
+                <div class="schedule-item">
+                    <input type="checkbox" class="cb-sm" disabled>
+                    <div class="info">
+                        <div class="subtitle">Write CSS for hero section</div>
+                        <div class="parent-info">Task: Redesign landing page</div>
+                    </div>
+                    <span class="elapsed">↻ 0:15:00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================= -->
+        <!--  BLOCK 4: Log Window                                          -->
+        <!-- ============================================================= -->
+        <div class="card log-block">
+            <div class="card-title">📜 Activity Log</div>
+            <div class="log-body">
+                <div class="log-entry">
+                    <span class="time">15:42</span>
+                    <span class="msg">
+                        <span class="log-type-complete">[complete]</span>
+                        Subtask "Add JWT token refresh" marked done
+                    </span>
+                </div>
+                <div class="log-entry">
+                    <span class="time">15:30</span>
+                    <span class="msg">
+                        <span class="log-type-split">[split]</span>
+                        Task "Build notification service" split into 3 subtasks
+                    </span>
+                </div>
+                <div class="log-entry">
+                    <span class="time">14:55</span>
+                    <span class="msg">
+                        <span class="log-type-promote">[promote]</span>
+                        Subtask "Set up email provider" promoted to Task
+                    </span>
+                </div>
+                <div class="log-entry">
+                    <span class="time">14:20</span>
+                    <span class="msg">
+                        <span class="log-type-archive">[archive]</span>
+                        Problem "Set up CI/CD pipeline" archived
+                    </span>
+                </div>
+                <div class="log-entry">
+                    <span class="time">13:45</span>
+                    <span class="msg">
+                        <span class="log-type-complete">[complete]</span>
+                        Problem "Migrate database to PostgreSQL" completed
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================= -->
+        <!--  BLOCK 5: Statistics                                          -->
+        <!-- ============================================================= -->
+        <div class="card stats-block">
+            <div class="card-title">📊 Statistics</div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="value">5</div>
+                    <div class="label">Total Problems</div>
+                </div>
+                <div class="stat-card highlight">
+                    <div class="value">40%</div>
+                    <div class="label">Completion Rate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">12:30</div>
+                    <div class="label">Hours Tracked</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">7</div>
+                    <div class="label">Day Streak</div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /dashboard -->
+
+</body>
+</html>

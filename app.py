@@ -126,9 +126,8 @@ def _save_plan_to_db(plan: dict):
 
 @app.route("/")
 def home():
-    """Render the main page with a list of problems."""
-    problems = models.Problem.query.all()
-    return render_template("index.html", problems=problems)
+    """Render the dashboard home page."""
+    return render_template("home.html")
 
 
 # ===========================================================================
