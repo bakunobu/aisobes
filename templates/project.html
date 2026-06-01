@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Organizer — {{ project.description[:40] }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* Breadcrumb */
+        .breadcrumb {
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #888;
+        }
+        .breadcrumb a { color: #007bff; }
+
+        /* Flash messages */
+        .flash-success {
+            color: #155724;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 10px 14px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+        .flash-error {
+            color: #dc3545;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 10px 14px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+
+        /* Project header card */
+        .project-header {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .project-header h2 {
+            margin: 0 0 8px 0;
+            font-size: 20px;
+        }
+        .project-meta {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            font-size: 13px;
+            color: #555;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .badge-p1 { background: #dc3545; }
+        .badge-p2 { background: #fd7e14; }
+        .badge-p3 { background: #ffc107; color: #333; }
+        .badge-p4 { background: #17a2b8; }
+        .badge-p5 { background: #6c757d; }
+        .badge-active { background: #28a745; }
+        .badge-done { background: #28a745; }
+        .badge-archived { background: #adb5bd; }
+        .badge-in_progress { background: #ffc107; color: #333; }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .btn-primary { background: #007bff; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-success { background: #28a745; }
+        .btn-success:hover { background: #218838; }
+        .btn-danger { background: #dc3545; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-warning { background: #ffc107; color: #333; }
+        .btn-warning:hover { background: #e0a800; }
+        .btn-purple { background: #6f42c1; }
+        .btn-purple:hover { background: #5a32a3; }
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 11px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            color: #fff;
+        }
+        .btn-sm.btn-primary { background: #007bff; }
+        .btn-sm.btn-danger { background: #dc3545; }
+        .btn-sm.btn-purple { background: #6f42c1; }
+        .btn-sm.btn-success { background: #28a745; }
+
+        /* Edit form (collapsible) */
+        .edit-form {
+            display: none;
+            margin-top: 14px;
+            padding: 14px;
+            border: 1px dashed #ccc;
+            border-radius: 4px;
+            background: #f8f9fa;
+        }
+        .edit-form.active { display: block; }
+        .edit-form label {
+            display: block;
+            font-size: 12px;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 4px;
+            margin-top: 8px;
+        }
+        .edit-form input, .edit-form textarea, .edit-form select {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+        .edit-form textarea { height: 60px; resize: vertical; }
+        .edit-form .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        /* Tasks section */
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin: 20px 0 12px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .task-card {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .task-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            cursor: pointer;
+        }
+        .task-header:hover { background: #f5f5f5; }
+        .task-header .info { flex: 1; }
+        .task-header .task-id {
+            font-size: 11px;
+            color: #aaa;
+            font-family: 'Courier New', monospace;
+        }
+        .task-header .task-meta {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .task-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        /* Subtasks */
+        .subtask-list {
+            list-style: none;
+            padding: 0 0 0 36px;
+            margin: 0;
+            border-top: 1px solid #f0f0f0;
+        }
+        .subtask-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+        }
+        .subtask-item:last-child { border-bottom: none; }
+        .subtask-item .info { flex: 1; }
+
+        .cb {
+            width: 18px; height: 18px;
+            cursor: pointer;
+            accent-color: #28a745;
+            flex-shrink: 0;
+        }
+        .no-tasks {
+            color: #aaa;
+            font-size: 13px;
+            text-align: center;
+            padding: 24px 0;
+        }
+
+        /* Merge suggestions */
+        .merge-panel {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        .merge-panel h4 { margin: 0 0 10px 0; }
+        .merge-suggestion {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .merge-suggestion:last-child { border-bottom: none; }
+        .merge-suggestion .desc { flex: 1; font-size: 13px; }
+        .merge-suggestion .reason {
+            font-size: 11px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        /* Add task form */
+        .add-task-form {
+            background: #fff;
+            border: 1px dashed #007bff;
+            border-radius: 4px;
+            padding: 14px;
+            margin-top: 14px;
+        }
+        .add-task-form h4 { margin: 0 0 10px 0; font-size: 14px; }
+        .add-task-form label {
+            font-size: 12px;
+            font-weight: bold;
+            color: #555;
+            margin-right: 6px;
+        }
+        .add-task-form input, .add-task-form select {
+            padding: 5px 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-right: 8px;
+            margin-bottom: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+        <a href="/">🏠 Dashboard</a> &rsaquo;
+        Project #{{ project.id }}
+    </div>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-{{ 'success' if category == 'success' else 'error' }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- ================================================================= -->
+    <!--  Project Header                                                   -->
+    <!-- ================================================================= -->
+    <div class="project-header">
+        <h2>{{ project.description }}</h2>
+        <div class="project-meta">
+            <span class="badge badge-p{{ project.priority }}">P{{ project.priority }}</span>
+            {% if project.is_completed %}
+                <span class="badge badge-done">done</span>
+            {% elif project.is_archived %}
+                <span class="badge badge-archived">archived</span>
+            {% else %}
+                <span class="badge badge-active">active</span>
+            {% endif %}
+            <span>⏱ {{ (project.estimated_time or 0) // 60 }} min estimated</span>
+            <span>⏱ {{ (project.total_time_spent or 0) // 60 }} min spent</span>
+            {% if project.tags %}
+                <span>
+                    {% for t in project.tags %}
+                        <span class="badge" style="background:#6c757d;font-weight:normal;">{{ t.tag }}</span>
+                    {% endfor %}
+                </span>
+            {% endif %}
+            <button class="btn-sm btn-primary" onclick="toggleEditForm()">✏ Edit</button>
+        </div>
+
+        <!-- Inline Edit Form -->
+        <div class="edit-form" id="editForm">
+            <form action="/project/{{ project.id }}/edit" method="post">
+                <label>Description</label>
+                <textarea name="description">{{ project.description }}</textarea>
+                <div style="display:flex;gap:12px;">
+                    <div style="flex:1;">
+                        <label>Priority (1-5)</label>
+                        <select name="priority">
+                            {% for p in range(1, 6) %}
+                                <option value="{{ p }}" {% if project.priority == p %}selected{% endif %}>
+                                    P{{ p }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="flex:1;">
+                        <label>Estimated Time (minutes)</label>
+                        <input type="number" name="estimated_time"
+                               value="{{ (project.estimated_time or 0) // 60 }}" min="0">
+                    </div>
+                </div>
+                <label>Tags (comma-separated)</label>
+                <input type="text" name="tags"
+                       value="{{ project.tags | map(attribute='tag') | join(', ') }}">
+                <div class="btn-row">
+                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                    <button type="button" class="btn btn-sm btn-warning"
+                            onclick="toggleEditForm()" style="color:#333;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!--  Merge Suggestions (if any)                                       -->
+    <!-- ================================================================= -->
+    {% if merge_suggestions is defined and merge_suggestions %}
+    <div class="merge-panel">
+        <h4>🔀 AI Merge Suggestions</h4>
+        {% for sug in merge_suggestions %}
+        <div class="merge-suggestion">
+            <div class="desc">
+                <strong>Task #{{ sug.task_a_id }}</strong> &harr;
+                <strong>Task #{{ sug.task_b_id }}</strong>
+                <div class="reason">{{ sug.reason }}</div>
+                <div style="font-size:12px;color:#007bff;margin-top:4px;">
+                    → {{ sug.suggested_description }}
+                </div>
+            </div>
+            <form action="/project/{{ project.id }}/merge" method="post"
+                  style="flex-shrink:0;">
+                <input type="hidden" name="merge_a" value="{{ sug.task_a_id }}">
+                <input type="hidden" name="merge_b" value="{{ sug.task_b_id }}">
+                <button type="submit" class="btn-sm btn-success">Merge</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ================================================================= -->
+    <!--  Tasks Section                                                    -->
+    <!-- ================================================================= -->
+    <div class="section-title">
+        📋 Tasks
+        <form action="/project/{{ project.id }}/merge" method="post"
+              style="display:inline;">
+            <button type="submit" class="btn-sm btn-purple"
+                    title="Find tasks that can be merged">🔀 Merge</button>
+        </form>
+    </div>
+
+    {% if tasks %}
+        {% for task in tasks %}
+        <div class="task-card">
+            <div class="task-header">
+                <input type="checkbox" class="cb"
+                       {% if task.is_completed %}checked{% endif %}
+                       disabled title="Complete via timer tracking">
+                <div class="info">
+                    <span class="task-id">#{{ task.id }}</span>
+                    <span class="badge badge-p{{ task.priority }}">P{{ task.priority }}</span>
+                    ⏱ {{ (task.estimated_time or 0) // 60 }} min
+                    {% if task.tags %}
+                        {% for t in task.tags %}
+                            <span class="badge" style="background:#6c757d;font-weight:normal;font-size:10px;">{{ t.tag }}</span>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                <div class="task-actions">
+                    <form action="/project/{{ project.id }}/task/{{ task.id }}/split"
+                          method="post" style="display:inline;">
+                        <input type="text" name="hint" placeholder="Hint (optional)"
+                               style="width:100px;padding:3px 6px;font-size:11px;border:1px solid #ccc;border-radius:3px;margin-right:4px;">
+                        <button type="submit" class="btn-sm btn-purple"
+                                title="AI-powered split">⚡ Split</button>
+                    </form>
+                    <form action="/project/{{ project.id }}/task/{{ task.id }}/remove"
+                          method="post" style="display:inline;"
+                          onsubmit="return confirm('Remove task #{{ task.id }} and all its subtasks?');">
+                        <button type="submit" class="btn-sm btn-danger">✕ Remove</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Subtasks -->
+            {% set subs = task.subtasks.filter_by(is_deleted=False).all() %}
+            {% if subs %}
+            <ul class="subtask-list">
+                {% for sub in subs %}
+                <li class="subtask-item">
+                    <input type="checkbox" class="cb"
+                           {% if sub.is_completed %}checked{% endif %}
+                           disabled>
+                    <div class="info">
+                        <span class="task-id" style="font-size:10px;">sub #{{ sub.id }}</span>
+                        <span class="badge badge-p{{ sub.priority }}">P{{ sub.priority }}</span>
+                        ⏱ {{ (sub.estimated_time or 0) // 60 }} min
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="no-tasks">
+            No tasks yet. Use <strong>+ Add Task</strong> below or <strong>Decompose</strong> to generate tasks from an idea.
+        </div>
+    {% endif %}
+
+    <!-- ================================================================= -->
+    <!--  Add Task Form                                                    -->
+    <!-- ================================================================= -->
+    <div class="add-task-form">
+        <h4>+ Add Task</h4>
+        <form action="/project/{{ project.id }}/task/add" method="post">
+            <label>Description:</label>
+            <input type="text" name="description" placeholder="Task description..."
+                   style="width:300px;" required>
+            <label>Est. (min):</label>
+            <input type="number" name="estimated_time" value="30" min="0"
+                   style="width:70px;">
+            <label>Priority:</label>
+            <select name="priority">
+                <option value="1">P1 - Critical</option>
+                <option value="2">P2 - High</option>
+                <option value="3" selected>P3 - Normal</option>
+                <option value="4">P4 - Low</option>
+                <option value="5">P5 - Nice-to-have</option>
+            </select>
+            <button type="submit" class="btn-sm btn-primary">Add</button>
+        </form>
+    </div>
+
+    <script>
+        function toggleEditForm() {
+            document.getElementById('editForm').classList.toggle('active');
+        }
+    </script>
+</body>
+</html>

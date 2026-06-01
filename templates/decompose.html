@@ -10,28 +10,14 @@
             padding: 20px;
             background: #f8f9fa;
         }
-        .tabs {
-            display: flex;
-            gap: 0;
+        .back-link {
+            display: inline-block;
             margin-bottom: 20px;
-            border-bottom: 2px solid #ddd;
-        }
-        .tabs a {
             text-decoration: none;
-            padding: 10px 20px;
-            color: #333;
-            border: 1px solid #ddd;
-            border-bottom: none;
-            border-radius: 4px 4px 0 0;
-            background: #f5f5f5;
-        }
-        .tabs a.active {
-            background: #fff;
-            border-bottom: 2px solid #fff;
-            margin-bottom: -2px;
-            font-weight: bold;
             color: #007bff;
+            font-size: 14px;
         }
+        .back-link:hover { text-decoration: underline; }
 
         .form-card {
             background: #fff;
@@ -140,12 +126,7 @@
     </style>
 </head>
 <body>
-    <div class="tabs">
-        <a href="/">Status</a>
-        <a href="/ask">Ask</a>
-        <a href="/todo">Todo</a>
-        <a href="/decompose" class="active">Decompose</a>
-    </div>
+    <a href="/" class="back-link">&larr; Return to Home</a>
 
     <h1>Decompose Idea</h1>
 
@@ -165,11 +146,8 @@
 
     <!-- Input form -->
     <div class="form-card">
-        <h3>Enter your idea or problem</h3>
+        <h3>Enter your idea or project</h3>
         <form action="/decompose" method="post">
-            <select name="problem_id" id="problem_select" onchange="toggleInput()">
-                <option value="">-- New idea --</option>
-            </select>
             <textarea name="problem" id="problem_input"
                       placeholder="Describe your idea or problem in freeform text...">{{ idea }}</textarea>
             <div class="btn-row">
@@ -189,7 +167,7 @@
             <ul>
                 {% for prob in plan.get("problems", []) %}
                     <li>
-                        <strong>Problem:</strong> {{ prob.get("description", "Untitled") }}
+                        <strong>Project:</strong> {{ prob.get("description", "Untitled") }}
                         ({{ prob.get("estimated_time", 0) }} min, priority {{ prob.get("priority", 3) }})
                         {% set ptags = prob.get("tags", []) %}
                         {% if ptags %}[{{ ptags | join(", ") }}]{% endif %}
@@ -230,16 +208,5 @@
         </div>
     {% endif %}
 
-    <script>
-        function toggleInput() {
-            var sel = document.getElementById("problem_select");
-            var input = document.getElementById("problem_input");
-            if (sel.value) {
-                input.style.display = "none";
-            } else {
-                input.style.display = "block";
-            }
-        }
-    </script>
 </body>
 </html>

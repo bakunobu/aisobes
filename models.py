@@ -1,7 +1,7 @@
 """SQLAlchemy ORM models for the Organizer application.
 
 Hierarchy:
-    Problem (epic)
+    Project (epic)
       └── Task
             └── Subtask
 
@@ -42,7 +42,7 @@ class User(db.Model):
 
 
 # ===========================================================================
-# UserEntityRole — polymorphic join: user ↔ (Problem | Task | Subtask)
+# UserEntityRole — polymorphic join: user ↔ (Project | Task | Subtask)
 # ===========================================================================
 
 class UserEntityRole(db.Model):
@@ -52,7 +52,7 @@ class UserEntityRole(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     entity_type = db.Column(
         db.String(20), nullable=False
-    )  # 'problem' | 'task' | 'subtask'
+    )  # 'project' | 'task' | 'subtask'
     entity_id = db.Column(db.Integer, nullable=False)
     role = db.Column(
         db.String(20), nullable=False
@@ -88,7 +88,7 @@ class Tag(db.Model):
     tag = db.Column(db.String(120), nullable=False, unique=True)
 
     # Relationships
-    problems = db.relationship("Problem", secondary="problem_tags", back_populates="tags")
+    projects = db.relationship("Project", secondary="project_tags", back_populates="tags")
     tasks = db.relationship("Task", secondary="task_tags", back_populates="tags")
     subtasks = db.relationship("Subtask", secondary="subtask_tags", back_populates="tags")
 
@@ -97,11 +97,11 @@ class Tag(db.Model):
 
 
 # ===========================================================================
-# Problem
+# Project
 # ===========================================================================
 
-class Problem(db.Model):
-    __tablename__ = "problems"
+class Project(db.Model):
+    __tablename__ = "projects"
 
     id = db.Column(db.Integer, primary_key=True)
     description = db.Column(db.Text, nullable=False)
@@ -119,28 +119,28 @@ class Problem(db.Model):
     priority = db.Column(db.Integer, default=3)  # 1=highest, 5=lowest
 
     # Relationships
-    tags = db.relationship("Tag", secondary="problem_tags", back_populates="problems")
-    tasks = db.relationship("Task", back_populates="problem", lazy="dynamic")
+    tags = db.relationship("Tag", secondary="project_tags", back_populates="projects")
+    tasks = db.relationship("Task", back_populates="project", lazy="dynamic")
     user_roles = db.relationship(
         "UserEntityRole",
-        primaryjoin="and_(Problem.id == foreign(UserEntityRole.entity_id), "
-                    "UserEntityRole.entity_type == 'problem')",
+        primaryjoin="and_(Project.id == foreign(UserEntityRole.entity_id), "
+                    "UserEntityRole.entity_type == 'project')",
         viewonly=True,
         lazy="dynamic",
     )
 
     def __repr__(self):
-        return f"<Problem {self.id}: {self.description[:40]!r}>"
+        return f"<Project {self.id}: {self.description[:40]!r}>"
 
 
 # ===========================================================================
-# Problem ↔ Tag mapping
+# Project ↔ Tag mapping
 # ===========================================================================
 
-class ProblemTag(db.Model):
-    __tablename__ = "problem_tags"
+class ProjectTag(db.Model):
+    __tablename__ = "project_tags"
 
-    problem_id = db.Column(db.Integer, db.ForeignKey("problems.id"), primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), primary_key=True)
     tag_id = db.Column(db.Integer, db.ForeignKey("tags.id"), primary_key=True)
 
 
@@ -152,7 +152,7 @@ class Task(db.Model):
     __tablename__ = "tasks"
 
     id = db.Column(db.Integer, primary_key=True)
-    problem_id = db.Column(db.Integer, db.ForeignKey("problems.id"), nullable=False)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False)
     created = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     first_run = db.Column(db.DateTime, nullable=True)
     total_time_spent = db.Column(db.Integer, default=0)  # actual tracked seconds
@@ -163,7 +163,7 @@ class Task(db.Model):
     priority = db.Column(db.Integer, default=3)  # 1=highest, 5=lowest
 
     # Relationships
-    problem = db.relationship("Problem", back_populates="tasks")
+    project = db.relationship("Project", back_populates="tasks")
     tags = db.relationship("Tag", secondary="task_tags", back_populates="tasks")
     subtasks = db.relationship("Subtask", back_populates="task", lazy="dynamic")
     user_roles = db.relationship(
@@ -175,7 +175,7 @@ class Task(db.Model):
     )
 
     def __repr__(self):
-        return f"<Task {self.id} (problem={self.problem_id})>"
+        return f"<Task {self.id} (project={self.project_id})>"
 
 
 # ===========================================================================
@@ -243,7 +243,7 @@ class ChangeLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     entity_type = db.Column(
         db.String(20), nullable=False
-    )  # 'problem' | 'task' | 'subtask'
+    )  # 'project' | 'task' | 'subtask'
     entity_id = db.Column(db.Integer, nullable=False)
     change_type = db.Column(
         db.String(20), nullable=False

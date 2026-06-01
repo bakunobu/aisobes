@@ -2,10 +2,13 @@
 
 Provides the ``decompose_idea`` function that takes poorly structured user
 input (an "idea"), calls an LLM, and returns a structured plan following the
-Problem → Task → Subtask hierarchy with tags, time estimates, and priorities.
+Project → Task → Subtask hierarchy with tags, time estimates, and priorities.
 
 The LLM judges autonomously whether the input should become a subtask for an
-existing task, a new problem, or multiple problems sharing a common topic.
+existing task, a new project, or multiple projects sharing a common topic.
+
+Also provides ``suggest_merge_tasks`` and ``split_task`` for AI-powered
+task management on the project detail page.
 """
 
 from __future__ import annotations
@@ -30,17 +33,17 @@ below.
 **Judgment rules — you decide autonomously:**
 
 1. If the idea is small and specific, it may be a single **subtask** that fits
-   under an existing task; in that case emit ONE problem with ONE task and ONE
+   under an existing task; in that case emit ONE project with ONE task and ONE
    subtask.
 
 2. If the idea describes a self-contained piece of work, emit it as ONE
-   **problem** with one or more tasks (each possibly with subtasks).
+   **project** with one or more tasks (each possibly with subtasks).
 
 3. If the idea is broad and touches several independent areas, split it into
-   MULTIPLE **problems** that share a common theme (use a shared high-level
+   MULTIPLE **projects** that share a common theme (use a shared high-level
    tag to link them).
 
-**For every problem, task, and subtask you MUST provide:**
+**For every project, task, and subtask you MUST provide:**
 
 - ``description`` — a clear, one-sentence description.
 - ``estimated_time`` — estimated duration in **minutes** (integer).  Try to
@@ -55,7 +58,7 @@ below.
     "shared_tags": ["tag1", "tag2"],
     "problems": [
         {
-            "description": "<problem description>",
+            "description": "<project description>",
             "estimated_time": 480,
             "priority": 2,
             "tags": ["tag1"],
@@ -79,10 +82,37 @@ below.
     ]
 }
 
-- Every problem MUST have a non-empty ``tasks`` list.
+- Every project MUST have a non-empty ``tasks`` list.
 - Every task MAY have an empty ``subtasks`` list.
-- ``shared_tags`` are tags that apply across all problems (the common theme).
+- ``shared_tags`` are tags that apply across all projects (the common theme).
 - ``estimated_time`` is in minutes, always a positive integer.
+"""
+
+# ===========================================================================
+# Prompt: suggest task merges
+# ===========================================================================
+
+SUGGEST_MERGE_PROMPT = """You are a task management expert. Given a list of
+tasks from the same project, identify pairs of tasks that are similar enough
+to be merged into one combined task.
+
+Return ONLY a JSON array of merge suggestions (no markdown fences, no extra text):
+
+[
+    {
+        "task_a_index": 0,
+        "task_b_index": 2,
+        "reason": "Both deal with database schema changes",
+        "suggested_description": "Refactor and migrate database schema"
+    }
+]
+
+Rules:
+- Only suggest merges when tasks are genuinely overlapping or related.
+- If no good merges exist, return an empty array [].
+- task_a_index and task_b_index refer to the 0-based position in the input list.
+- ``reason`` should explain why the merge makes sense.
+- ``suggested_description`` is the proposed combined task description.
 """
 
 # ===========================================================================
@@ -133,7 +163,7 @@ def _normalise_decomposed(data: dict) -> dict:
     for prob in data["problems"]:
         if not isinstance(prob, dict):
             continue
-        prob.setdefault("description", "Untitled problem")
+        prob.setdefault("description", "Untitled project")
         prob.setdefault("estimated_time", 0)
         prob.setdefault("priority", 3)
         prob.setdefault("tags", [])
@@ -179,10 +209,10 @@ def decompose_idea(
     output_dir: str = "./llm_responses",
     timeout: int = 90,
 ) -> dict:
-    """Decompose a poorly structured user idea into a Problem→Task→Subtask plan.
+    """Decompose a poorly structured user idea into a Project→Task→Subtask plan.
 
     The LLM autonomously judges:
-    - Whether the input is a single subtask, a new problem, or multiple problems.
+    - Whether the input is a single subtask, a new project, or multiple projects.
     - Appropriate tags, time estimates (minutes), and priority levels.
 
     Parameters
@@ -275,7 +305,7 @@ def decompose_idea(
     plan = _normalise_decomposed(plan)
 
     if not plan.get("problems"):
-        raise ValueError("LLM returned an empty problems list")
+        raise ValueError("LLM returned an empty projects list")
 
     # 4. Persist (optional)
     if save:
@@ -287,6 +317,231 @@ def decompose_idea(
         plan["_saved_to"] = filename
 
     return plan
+
+
+def suggest_merge_tasks(
+    tasks: list,
+    prompt: Optional[str] = None,
+    credentials: Optional[dict] = None,
+    *,
+    timeout: int = 90,
+) -> list[dict]:
+    """Analyze a list of tasks and suggest pairs that can be merged.
+
+    Calls the LLM with the task descriptions/tags and returns a list of
+    merge suggestions.  Does NOT mutate the database — the caller decides
+    which suggestions to act on.
+
+    Parameters
+    ----------
+    tasks:
+        List of ORM Task instances (must have ``id``, ``tags``, ``priority``,
+        ``estimated_time``, and ``subtasks``).
+    prompt:
+        Custom system prompt.  Defaults to :data:`SUGGEST_MERGE_PROMPT`.
+    credentials:
+        Dict with keys ``api_url``, ``api_key``, ``model``.
+    timeout:
+        API request timeout in seconds.
+
+    Returns
+    -------
+    list[dict]
+        Each dict: ``{"task_a_id": int, "task_b_id": int, "reason": str,
+        "suggested_description": str}``
+    """
+    creds = _load_credentials(credentials)
+    system_prompt = prompt if prompt is not None else SUGGEST_MERGE_PROMPT
+
+    # Build a compact description of each task
+    task_descriptions = []
+    task_ids = []
+    for t in tasks:
+        tags_str = ", ".join(tag.tag for tag in (t.tags or []))
+        sub_count = t.subtasks.filter_by(is_deleted=False).count()
+        desc = (
+            f"Task #{t.id} [priority={t.priority}, "
+            f"est={(t.estimated_time or 0) // 60}min, "
+            f"tags: {tags_str or 'none'}, subtasks: {sub_count}]"
+        )
+        task_descriptions.append(desc)
+        task_ids.append(t.id)
+
+    user_message = "Tasks in this project:\n" + "\n".join(
+        f"{i}. {desc}" for i, desc in enumerate(task_descriptions)
+    )
+
+    response = requests.post(
+        url=creds["api_url"],
+        headers={"Authorization": f"Bearer {creds['api_key']}"},
+        json={
+            "model": creds["model"],
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+        },
+        timeout=timeout,
+    )
+    response.raise_for_status()
+
+    raw_content = response.json()["choices"][0]["message"]["content"]
+    json_text = _extract_json(raw_content)
+
+    try:
+        suggestions = json.loads(json_text)
+    except json.JSONDecodeError:
+        raise ValueError(
+            f"LLM did not return valid JSON for merge suggestions. "
+            f"Raw:\n{raw_content}"
+        ) from None
+
+    if not isinstance(suggestions, list):
+        raise ValueError(
+            f"Expected a JSON array, got {type(suggestions).__name__}"
+        )
+
+    # Map indices back to real task IDs
+    result = []
+    for s in suggestions:
+        if not isinstance(s, dict):
+            continue
+        a_idx = s.get("task_a_index")
+        b_idx = s.get("task_b_index")
+        if a_idx is None or b_idx is None:
+            continue
+        try:
+            task_a_id = task_ids[int(a_idx)]
+            task_b_id = task_ids[int(b_idx)]
+        except (IndexError, ValueError):
+            continue
+        result.append({
+            "task_a_id": task_a_id,
+            "task_b_id": task_b_id,
+            "reason": s.get("reason", ""),
+            "suggested_description": s.get("suggested_description", ""),
+        })
+
+    return result
+
+
+def split_task(
+    task_id: int,
+    description: str = "",
+    hint: str = "",
+    prompt: Optional[str] = None,
+    credentials: Optional[dict] = None,
+    *,
+    timeout: int = 90,
+) -> list[dict]:
+    """Break a coarse task into 2-4 finer-grained tasks via LLM.
+
+    Returns a list of task dicts compatible with the Project→Task→Subtask
+    schema.  Each result has ``description``, ``estimated_time`` (minutes),
+    ``priority``, ``tags``, and ``subtasks``.
+
+    Parameters
+    ----------
+    task_id:
+        The database ID of the task to split (for logging).
+    description:
+        Context about the task — passed to the LLM.
+    hint:
+        Optional hint to guide the split (e.g. "focus on frontend").
+    prompt:
+        Custom system prompt.
+    credentials:
+        Dict with ``api_url``, ``api_key``, ``model``.
+    timeout:
+        API request timeout.
+
+    Returns
+    -------
+    list[dict]
+        Each dict is a task with optional subtasks.
+    """
+    creds = _load_credentials(credentials)
+
+    SPLIT_TASK_PROMPT = """You are a task decomposition expert. Given a
+coarse task, break it into 2-4 finer-grained tasks, each with 1-4 subtasks.
+
+For each item provide: description, estimated_time (minutes), priority (1-5),
+tags (1-3 strings).
+
+Output ONLY a JSON array of task objects (no markdown fences):
+
+[
+    {
+        "description": "<task>",
+        "estimated_time": 120,
+        "priority": 3,
+        "tags": ["tag"],
+        "subtasks": [
+            {
+                "description": "<subtask>",
+                "estimated_time": 60,
+                "priority": 3,
+                "tags": ["tag"]
+            }
+        ]
+    }
+]
+"""
+
+    system_prompt = prompt if prompt is not None else SPLIT_TASK_PROMPT
+
+    parts = [f"Task to split (ID #{task_id}): {description}"]
+    if hint:
+        parts.append(f"Hint: {hint}")
+    user_message = "\n".join(parts)
+
+    response = requests.post(
+        url=creds["api_url"],
+        headers={"Authorization": f"Bearer {creds['api_key']}"},
+        json={
+            "model": creds["model"],
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+        },
+        timeout=timeout,
+    )
+    response.raise_for_status()
+
+    raw_content = response.json()["choices"][0]["message"]["content"]
+    json_text = _extract_json(raw_content)
+
+    try:
+        parsed = json.loads(json_text)
+    except json.JSONDecodeError:
+        raise ValueError(
+            f"LLM did not return valid JSON for split. Raw:\n{raw_content}"
+        ) from None
+
+    if isinstance(parsed, dict) and "tasks" in parsed:
+        parsed = parsed["tasks"]
+    if not isinstance(parsed, list):
+        raise ValueError(
+            f"Expected a JSON array of tasks, got {type(parsed).__name__}"
+        )
+    if len(parsed) == 0:
+        raise ValueError("LLM returned an empty task list for split")
+
+    # Normalise each task
+    for task in parsed:
+        task.setdefault("description", description or "Untitled task")
+        task.setdefault("estimated_time", 0)
+        task.setdefault("priority", 3)
+        task.setdefault("tags", [])
+        task.setdefault("subtasks", [])
+        for sub in task.get("subtasks", []):
+            sub.setdefault("description", "Untitled subtask")
+            sub.setdefault("estimated_time", 0)
+            sub.setdefault("priority", 3)
+            sub.setdefault("tags", [])
+
+    return parsed
 
 
 # ===========================================================================

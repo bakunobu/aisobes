@@ -247,6 +247,12 @@
         .log-type-merge    { color: #17a2b8; font-weight: 600; }
         .log-type-complete  { color: #28a745; font-weight: 600; }
         .log-type-archive  { color: #6c757d; font-weight: 600; }
+        .empty-state {
+            color: #aaa;
+            font-size: 13px;
+            text-align: center;
+            padding: 20px 0;
+        }
 
         /* ===================================================================
            Block 5: Statistics (bottom-right)
@@ -288,16 +294,6 @@
 <body>
 
     <!-- ================================================================= -->
-    <!--  Tabs                                                             -->
-    <!-- ================================================================= -->
-    <div class="tabs">
-        <a href="/" class="active">Home</a>
-        <a href="/ask">Ask</a>
-        <a href="/todo">Todo</a>
-        <a href="/decompose">Decompose</a>
-    </div>
-
-    <!-- ================================================================= -->
     <!--  Dashboard Grid                                                   -->
     <!-- ================================================================= -->
     <div class="dashboard">
@@ -306,58 +302,33 @@
         <!--  BLOCK 1: Problem List                                        -->
         <!-- ============================================================= -->
         <div class="card problem-list">
-            <div class="card-title">📋 Problems</div>
+            <div class="card-title">📋 Projects</div>
             <div class="list-toolbar">
-                <input type="text" placeholder="Filter problems..." disabled>
+                <input type="text" placeholder="Filter projects..." disabled>
                 <a href="/decompose"><button class="btn-sm">+ New</button></a>
             </div>
             <div class="list-body">
-                <!-- Placeholder rows -->
-                <div class="problem-row">
-                    <span class="desc">Refactor authentication module</span>
-                    <span class="meta">
-                        <span class="badge badge-p2">P2</span>
-                        <span class="badge badge-active">active</span>
-                        <span>5 tasks</span>
-                    </span>
-                    <button class="btn-sm" disabled>Open</button>
-                </div>
-                <div class="problem-row">
-                    <span class="desc">Build notification service</span>
-                    <span class="meta">
-                        <span class="badge badge-p3">P3</span>
-                        <span class="badge badge-active">active</span>
-                        <span>3 tasks</span>
-                    </span>
-                    <button class="btn-sm" disabled>Open</button>
-                </div>
-                <div class="problem-row">
-                    <span class="desc">Migrate database to PostgreSQL</span>
-                    <span class="meta">
-                        <span class="badge badge-p1">P1</span>
-                        <span class="badge badge-done">done</span>
-                        <span>8 tasks</span>
-                    </span>
-                    <button class="btn-sm" disabled>Open</button>
-                </div>
-                <div class="problem-row">
-                    <span class="desc">Redesign landing page</span>
-                    <span class="meta">
-                        <span class="badge badge-p4">P4</span>
-                        <span class="badge badge-active">active</span>
-                        <span>4 tasks</span>
-                    </span>
-                    <button class="btn-sm" disabled>Open</button>
-                </div>
-                <div class="problem-row">
-                    <span class="desc">Set up CI/CD pipeline</span>
-                    <span class="meta">
-                        <span class="badge badge-p3">P3</span>
-                        <span class="badge badge-archived">archived</span>
-                        <span>6 tasks</span>
-                    </span>
-                    <button class="btn-sm" disabled>Open</button>
-                </div>
+                {% if projects %}
+                    {% for proj in projects %}
+                    <div class="problem-row">
+                        <span class="desc">{{ proj.description }}</span>
+                        <span class="meta">
+                            <span class="badge badge-p{{ proj.priority }}">P{{ proj.priority }}</span>
+                            {% if proj.is_completed %}
+                                <span class="badge badge-done">done</span>
+                            {% elif proj.is_archived %}
+                                <span class="badge badge-archived">archived</span>
+                            {% else %}
+                                <span class="badge badge-active">active</span>
+                            {% endif %}
+                            <span>{{ proj.tasks.filter_by(is_deleted=False).count() }} tasks</span>
+                        </span>
+                        <a href="/project/{{ proj.id }}"><button class="btn-sm">Open</button></a>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">No projects yet. Click <strong>+ New</strong> to create one.</div>
+                {% endif %}
             </div>
         </div>
 
@@ -386,7 +357,7 @@
                     <input type="checkbox" class="cb-sm" disabled>
                     <div class="info">
                         <div class="subtitle">Add JWT token refresh</div>
-                        <div class="parent-info">Task: Refactor authentication module</div>
+                        <div class="parent-info">Project: Refactor authentication module</div>
                     </div>
                     <span class="elapsed">↻ 0:42:15</span>
                 </div>
@@ -394,7 +365,7 @@
                     <input type="checkbox" class="cb-sm" disabled>
                     <div class="info">
                         <div class="subtitle">Design email templates</div>
-                        <div class="parent-info">Task: Build notification service</div>
+                        <div class="parent-info">Project: Build notification service</div>
                     </div>
                     <span class="elapsed">↻ 1:03:50</span>
                 </div>
@@ -402,7 +373,7 @@
                     <input type="checkbox" class="cb-sm" disabled>
                     <div class="info">
                         <div class="subtitle">Write CSS for hero section</div>
-                        <div class="parent-info">Task: Redesign landing page</div>
+                        <div class="parent-info">Project: Redesign landing page</div>
                     </div>
                     <span class="elapsed">↻ 0:15:00</span>
                 </div>
@@ -440,14 +411,14 @@
                     <span class="time">14:20</span>
                     <span class="msg">
                         <span class="log-type-archive">[archive]</span>
-                        Problem "Set up CI/CD pipeline" archived
+                        Project "Set up CI/CD pipeline" archived
                     </span>
                 </div>
                 <div class="log-entry">
                     <span class="time">13:45</span>
                     <span class="msg">
                         <span class="log-type-complete">[complete]</span>
-                        Problem "Migrate database to PostgreSQL" completed
+                        Project "Migrate database to PostgreSQL" completed
                     </span>
                 </div>
             </div>

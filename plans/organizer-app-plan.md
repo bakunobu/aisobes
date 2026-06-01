@@ -5,12 +5,12 @@
 Пользователь уточнил модель данных — теперь используется четкая трехуровневая структура:
 
 ```
-Problem (проблема/эпик)
-  └── Task (задача)          — many Tasks per Problem
+Project (проект/эпик)
+  └── Task (задача)          — many Tasks per Project
         └── Subtask (подзадача) — many Subtasks per Task
 ```
 
-Каждый уровень поддерживает теги (many-to-many). Все изменения (promote/split) логируются в ChangeLog.
+Каждый уровень поддерживает теги (many-to-many). Все изменения (promote/split/merge) логируются в ChangeLog.
 
 ---
 
@@ -23,9 +23,9 @@ Tag
 ├── tag           TEXT NOT NULL UNIQUE
 ```
 
-### 2.2 Problem
+### 2.2 Project
 ```
-Problem
+Project
 ├── id                  INTEGER PK
 ├── description         TEXT NOT NULL
 ├── created             DATETIME
@@ -40,19 +40,19 @@ Problem
 ├── is_deleted          BOOLEAN DEFAULT FALSE (soft delete)
 ```
 
-### 2.3 ProblemTag (mapping)
+### 2.3 ProjectTag (mapping)
 ```
-ProblemTag
-├── problem_id   INTEGER FK → Problem.id
+ProjectTag
+├── project_id   INTEGER FK → Project.id
 ├── tag_id       INTEGER FK → Tag.id
-└── PK (problem_id, tag_id)
+└── PK (project_id, tag_id)
 ```
 
 ### 2.4 Task
 ```
 Task
 ├── id                  INTEGER PK
-├── problem_id          INTEGER FK → Problem.id (NOT NULL)
+├── project_id          INTEGER FK → Project.id (NOT NULL)
 ├── created             DATETIME
 ├── first_run           DATETIME (nullable)
 ├── total_time_spent    INTEGER DEFAULT 0 (секунды)
@@ -135,6 +135,30 @@ The `UserEntityRole` table follows the same polymorphic pattern as `ChangeLog`
 
 ---
 
+## 3. Project Detail Page
+
+A dedicated page at `/project/<id>` for managing a single project:
+
+- **View**: Full task hierarchy (Project → Tasks → Subtasks) with priorities, time estimates, tags
+- **Edit**: Inline form to modify project description, priority, estimated time, tags
+- **Merge (🔀)**: AI-powered — calls `suggest_merge_tasks()` which sends all tasks to the LLM to identify similar pairs, then shows suggestions for user approval
+- **Split (⚡)**: Per-task button — calls `split_task()` which asks the LLM to break a coarse task into 2-4 finer-grained tasks with subtasks
+- **Add Task**: Form to add a new task directly to the project
+- **Remove Task**: Soft-deletes a task and all its subtasks
+
+### Routes
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/project/<id>` | GET | Render project detail page |
+| `/project/<id>/edit` | POST | Update project metadata |
+| `/project/<id>/task/add` | POST | Add a new task |
+| `/project/<id>/task/<task_id>/remove` | POST | Soft-delete a task |
+| `/project/<id>/task/<task_id>/split` | POST | AI-powered task split |
+| `/project/<id>/merge` | POST | AI-powered merge suggestions + execution |
+
+---
+
 ## 3. Технологии
 
 | Слой | Выбор |
@@ -157,4 +181,11 @@ The `UserEntityRole` table follows the same polymorphic pattern as `ChangeLog`
 
 ## 5. Остальные разделы плана
 
-Разделы про страницы, API, планировщик, геймификацию — см. v2 плана. Они будут адаптированы под новую модель Problem→Task→Subtask по мере реализации.
+### 3.1 Utility Functions
+
+- `suggest_merge_tasks(tasks)` — Sends task list to LLM, returns merge candidate pairs with reasons
+- `split_task(task_id, description, hint)` — Sends single task to LLM, returns 2-4 finer tasks with subtasks
+
+---
+
+## 4. Разделы про страницы, API, планировщик, геймификацию — см. v2 плана. Они будут адаптированы под новую модель Project→Task→Subtask по мере реализации.
