@@ -401,8 +401,14 @@
                             <span class="badge" style="background:#6c757d;font-weight:normal;font-size:10px;">{{ t.tag }}</span>
                         {% endfor %}
                     {% endif %}
+                    {% if task.total_time_spent %}
+                        <span style="font-size:11px;color:#888;">⌛ {{ (task.total_time_spent or 0) // 60 }}m tracked</span>
+                    {% endif %}
                 </div>
                 <div class="task-actions">
+                    <button class="btn-sm btn-success" style="margin-right:4px;"
+                            onclick="Timer.selectTask({{ task.id }}, null, 'Task #{{ task.id }}', {{ task.estimated_time or 0 }}); return false;"
+                            title="Start timer for this task">▶</button>
                     <form action="/project/{{ project.id }}/task/{{ task.id }}/split"
                           method="post" style="display:inline;">
                         <input type="text" name="hint" placeholder="Hint (optional)"
@@ -431,7 +437,13 @@
                         <span class="task-id" style="font-size:10px;">sub #{{ sub.id }}</span>
                         <span class="badge badge-p{{ sub.priority }}">P{{ sub.priority }}</span>
                         ⏱ {{ (sub.estimated_time or 0) // 60 }} min
+                        {% if sub.total_time_spent %}
+                            <span style="font-size:10px;color:#888;">⌛ {{ (sub.total_time_spent or 0) // 60 }}m tracked</span>
+                        {% endif %}
                     </div>
+                    <button class="btn-sm btn-success" style="margin-left:8px;"
+                            onclick="Timer.selectTask(null, {{ sub.id }}, 'Subtask #{{ sub.id }}', {{ sub.estimated_time or 0 }}); return false;"
+                            title="Start timer for this subtask">▶</button>
                 </li>
                 {% endfor %}
             </ul>
@@ -468,6 +480,7 @@
         </form>
     </div>
 
+    <script src="/static/timer.js"></script>
     <script>
         function toggleEditForm() {
             document.getElementById('editForm').classList.toggle('active');

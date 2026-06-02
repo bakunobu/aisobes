@@ -166,6 +166,10 @@ class Task(db.Model):
     project = db.relationship("Project", back_populates="tasks")
     tags = db.relationship("Tag", secondary="task_tags", back_populates="tasks")
     subtasks = db.relationship("Subtask", back_populates="task", lazy="dynamic")
+    timer_sessions = db.relationship(
+        "TimerSession", back_populates="task", lazy="dynamic",
+        foreign_keys="TimerSession.task_id",
+    )
     user_roles = db.relationship(
         "UserEntityRole",
         primaryjoin="and_(Task.id == foreign(UserEntityRole.entity_id), "
@@ -210,6 +214,10 @@ class Subtask(db.Model):
     # Relationships
     task = db.relationship("Task", back_populates="subtasks")
     tags = db.relationship("Tag", secondary="subtask_tags", back_populates="subtasks")
+    timer_sessions = db.relationship(
+        "TimerSession", back_populates="subtask", lazy="dynamic",
+        foreign_keys="TimerSession.subtask_id",
+    )
     user_roles = db.relationship(
         "UserEntityRole",
         primaryjoin="and_(Subtask.id == foreign(UserEntityRole.entity_id), "
@@ -255,3 +263,38 @@ class ChangeLog(db.Model):
 
     def __repr__(self):
         return f"<ChangeLog {self.change_type} on {self.entity_type}#{self.entity_id}>"
+
+
+# ===========================================================================
+# TimerSession — records individual countdown/pomodoro timer sessions
+# ===========================================================================
+
+
+class TimerSession(db.Model):
+    __tablename__ = "timer_sessions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.Integer, db.ForeignKey("tasks.id"), nullable=True)
+    subtask_id = db.Column(db.Integer, db.ForeignKey("subtasks.id"), nullable=True)
+    planned_duration = db.Column(db.Integer, default=0)  # seconds
+    actual_duration = db.Column(db.Integer, default=0)   # seconds
+    status = db.Column(
+        db.String(20), default="inactive"
+    )  # 'inactive' | 'active' | 'paused' | 'completed' | 'stopped'
+    start_time = db.Column(db.DateTime, nullable=True)
+    end_time = db.Column(db.DateTime, nullable=True)
+    created = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    task = db.relationship(
+        "Task", back_populates="timer_sessions",
+        foreign_keys=[task_id],
+    )
+    subtask = db.relationship(
+        "Subtask", back_populates="timer_sessions",
+        foreign_keys=[subtask_id],
+    )
+
+    def __repr__(self):
+        target = f"task={self.task_id}" if self.task_id else f"subtask={self.subtask_id}"
+        return f"<TimerSession {self.id} ({target}) status={self.status}>"

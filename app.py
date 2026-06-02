@@ -3,6 +3,7 @@
 import json
 import os
 import time
+from datetime import datetime, timezone
 
 from flask import (
     Flask,
@@ -17,7 +18,7 @@ from flask import (
 from flask_migrate import Migrate
 
 from extensions import db
-from utils import decompose_idea
+import utils
 
 # ---------------------------------------------------------------------------
 # Flask application factory
@@ -29,6 +30,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-me")
 # Database configuration
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///organizer.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["STATIC_FOLDER"] = "static"
 
 # Bind db to this app
 db.init_app(app)
@@ -166,7 +168,7 @@ def decompose():
             error = "Please enter an idea."
         else:
             try:
-                plan = decompose_idea(idea)
+                plan = utils.decompose_idea(idea)
                 session["plan"] = plan
                 plan_json = json.dumps(plan, indent=2, ensure_ascii=False)
             except Exception as exc:
@@ -435,6 +437,222 @@ def project_merge(project_id):
         tasks=tasks,
         merge_suggestions=suggestions,
     )
+
+
+# ===========================================================================
+# Timer API endpoints
+# ===========================================================================
+
+
+@app.route("/api/tasks")
+def api_tasks():
+    """Return all non-deleted tasks with their subtasks for the timer dropdown."""
+    tasks = (
+        models.Task.query
+        .filter_by(is_deleted=False)
+        .order_by(models.Task.priority, models.Task.created)
+        .all()
+    )
+    result = []
+    for task in tasks:
+        project = models.Project.query.get(task.project_id)
+        subs = (
+            models.Subtask.query
+            .filter_by(task_id=task.id, is_deleted=False)
+            .order_by(models.Subtask.priority, models.Subtask.created)
+            .all()
+        )
+        result.append({
+            "id": task.id,
+            "description": project.description if project else "Untitled",
+            "project_id": task.project_id,
+            "project_name": project.description if project else "Untitled",
+            "estimated_time": task.estimated_time or 0,
+            "subtasks": [
+                {
+                    "id": s.id,
+                    "description": project.description if project else "Untitled",
+                    "estimated_time": s.estimated_time or 0,
+                }
+                for s in subs
+            ],
+        })
+    return {"success": True, "tasks": result}
+
+
+@app.route("/api/timer/start", methods=["POST"])
+def api_timer_start():
+    """Start a timer session for a task or subtask."""
+    data = request.get_json()
+    task_id = data.get("task_id")
+    subtask_id = data.get("subtask_id")
+    planned_duration = data.get("planned_duration", 0)
+
+    # Pause any currently active sessions
+    active_sessions = models.TimerSession.query.filter_by(status="active").all()
+    for s in active_sessions:
+        s.status = "paused"
+
+    session = models.TimerSession(
+        task_id=task_id,
+        subtask_id=subtask_id,
+        planned_duration=planned_duration,
+        status="active",
+        start_time=datetime.now(timezone.utc),
+    )
+    db.session.add(session)
+
+    if task_id:
+        task = models.Task.query.get(task_id)
+        if task and task.first_run is None:
+            task.first_run = datetime.now(timezone.utc)
+    if subtask_id:
+        subtask = models.Subtask.query.get(subtask_id)
+        if subtask and subtask.first_run is None:
+            subtask.first_run = datetime.now(timezone.utc)
+
+    db.session.commit()
+    return {"success": True, "session_id": session.id}
+
+
+@app.route("/api/timer/pause", methods=["PUT"])
+def api_timer_pause():
+    """Pause a running timer session."""
+    data = request.get_json()
+    session_id = data.get("session_id")
+    session = models.TimerSession.query.get(session_id)
+    if not session:
+        return {"success": False, "error": "Session not found"}, 404
+    elapsed = int((datetime.now(timezone.utc) - session.start_time).total_seconds())
+    session.actual_duration = elapsed
+    session.status = "paused"
+    db.session.commit()
+    return {"success": True, "actual_duration": session.actual_duration}
+
+
+@app.route("/api/timer/stop", methods=["PUT"])
+def api_timer_stop():
+    """Stop a timer session and accumulate time on the Task/Subtask."""
+    data = request.get_json()
+    session_id = data.get("session_id")
+    session = models.TimerSession.query.get(session_id)
+    if not session:
+        return {"success": False, "error": "Session not found"}, 404
+    elapsed = int((datetime.now(timezone.utc) - session.start_time).total_seconds())
+    session.actual_duration = elapsed
+    session.end_time = datetime.now(timezone.utc)
+    session.status = "stopped"
+
+    if session.task_id:
+        task = models.Task.query.get(session.task_id)
+        if task:
+            task.total_time_spent = (task.total_time_spent or 0) + elapsed
+    if session.subtask_id:
+        subtask = models.Subtask.query.get(session.subtask_id)
+        if subtask:
+            subtask.total_time_spent = (subtask.total_time_spent or 0) + elapsed
+    db.session.commit()
+    return {"success": True, "actual_duration": session.actual_duration}
+
+
+@app.route("/api/timer/complete", methods=["PUT"])
+def api_timer_complete():
+    """Mark a timer session as completed (timer reached zero)."""
+    data = request.get_json()
+    session_id = data.get("session_id")
+    session = models.TimerSession.query.get(session_id)
+    if not session:
+        return {"success": False, "error": "Session not found"}, 404
+    elapsed = int((datetime.now(timezone.utc) - session.start_time).total_seconds())
+    session.actual_duration = elapsed
+    session.end_time = datetime.now(timezone.utc)
+    session.status = "completed"
+
+    if session.task_id:
+        task = models.Task.query.get(session.task_id)
+        if task:
+            task.total_time_spent = (task.total_time_spent or 0) + elapsed
+    if session.subtask_id:
+        subtask = models.Subtask.query.get(session.subtask_id)
+        if subtask:
+            subtask.total_time_spent = (subtask.total_time_spent or 0) + elapsed
+    db.session.commit()
+    return {"success": True, "actual_duration": session.actual_duration}
+
+
+@app.route("/api/daily-stats")
+def api_daily_stats():
+    """Return today's timer statistics."""
+    today = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    sessions_today = models.TimerSession.query.filter(
+        models.TimerSession.created >= today,
+        models.TimerSession.status.in_(["completed", "stopped"]),
+    ).all()
+
+    finished = sum(1 for s in sessions_today if s.status == "completed")
+    total_time = sum(s.actual_duration or 0 for s in sessions_today)
+    total_sessions = len(sessions_today)
+
+    if total_sessions == 0:
+        mood = "😴"
+    elif finished >= total_sessions:
+        mood = "🔥"
+    elif finished / total_sessions >= 0.5:
+        mood = "😊"
+    else:
+        mood = "😤"
+
+    hours = total_time // 3600
+    minutes = (total_time % 3600) // 60
+    formatted = f"{hours}h {minutes}m" if hours > 0 else f"{minutes}m" if minutes > 0 else "0m"
+
+    completion_pct = (
+        round(finished / total_sessions * 100) if total_sessions > 0 else 0
+    )
+
+    return {
+        "success": True,
+        "stats": {
+            "finished_tasks": finished,
+            "total_sessions": total_sessions,
+            "total_time_seconds": total_time,
+            "total_time_formatted": formatted,
+            "completion_percentage": completion_pct,
+            "mood_emoji": mood,
+        },
+    }
+
+
+@app.route("/api/timer/stats")
+def api_timer_stats():
+    """Return per-task timer statistics."""
+    task_name = request.args.get("task")
+    sessions = models.TimerSession.query.all()
+    stats_map = {}
+    for s in sessions:
+        key = s.task_id or s.subtask_id
+        if key not in stats_map:
+            stats_map[key] = {
+                "task_id": s.task_id,
+                "subtask_id": s.subtask_id,
+                "task_name": f"{'subtask' if s.subtask_id else 'task'} #{key}",
+                "total_seconds_spent": 0,
+                "total_attempts": 0,
+                "successful_runs": 0,
+                "success_rate": 0,
+            }
+        stats_map[key]["total_seconds_spent"] += s.actual_duration or 0
+        stats_map[key]["total_attempts"] += 1
+        if s.status == "completed":
+            stats_map[key]["successful_runs"] += 1
+    for stat in stats_map.values():
+        if stat["total_attempts"] > 0:
+            stat["success_rate"] = round(
+                stat["successful_runs"] / stat["total_attempts"] * 100
+            )
+    return {"success": True, "stats": list(stats_map.values())}
 
 
 # ===========================================================================

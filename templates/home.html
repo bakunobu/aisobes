@@ -147,12 +147,12 @@
             text-align: center;
         }
         .timer-display {
-            font-size: 52px;
+            font-size: 28px;
             font-weight: bold;
             color: #333;
             font-family: 'Courier New', monospace;
             letter-spacing: 2px;
-            margin: 8px 0;
+            cursor: pointer;
         }
         .timer-label {
             font-size: 13px;
@@ -174,12 +174,18 @@
             font-weight: bold;
             color: #fff;
         }
+        .btn-timer:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-start  { background: #28a745; }
-        .btn-start:hover  { background: #218838; }
+        .btn-start:hover:not(:disabled)  { background: #218838; }
         .btn-pause  { background: #ffc107; color: #333; }
-        .btn-pause:hover  { background: #e0a800; }
-        .btn-reset  { background: #dc3545; }
-        .btn-reset:hover  { background: #c82333; }
+        .btn-pause:hover:not(:disabled)  { background: #e0a800; }
+        .btn-stop  { background: #dc3545; }
+        .btn-stop:hover:not(:disabled)  { background: #c82333; }
+
+        /* Completion bar colour coding */
+        .completion-bar.high-completion span { color: #28a745; }
+        .completion-bar.medium-completion span { color: #ffc107; }
+        .completion-bar.low-completion span { color: #dc3545; }
 
         /* ===================================================================
            Block 3: Schedule (right-middle)
@@ -247,12 +253,6 @@
         .log-type-merge    { color: #17a2b8; font-weight: 600; }
         .log-type-complete  { color: #28a745; font-weight: 600; }
         .log-type-archive  { color: #6c757d; font-weight: 600; }
-        .empty-state {
-            color: #aaa;
-            font-size: 13px;
-            text-align: center;
-            padding: 20px 0;
-        }
 
         /* ===================================================================
            Block 5: Statistics (bottom-right)
@@ -293,14 +293,9 @@
 </head>
 <body>
 
-    <!-- ================================================================= -->
-    <!--  Dashboard Grid                                                   -->
-    <!-- ================================================================= -->
     <div class="dashboard">
 
-        <!-- ============================================================= -->
-        <!--  BLOCK 1: Problem List                                        -->
-        <!-- ============================================================= -->
+        <!-- BLOCK 1: Problem List -->
         <div class="card problem-list">
             <div class="card-title">📋 Projects</div>
             <div class="list-toolbar">
@@ -332,27 +327,64 @@
             </div>
         </div>
 
-        <!-- ============================================================= -->
-        <!--  BLOCK 2: Countdown Timer                                     -->
-        <!-- ============================================================= -->
+        <!-- BLOCK 2: Countdown Timer -->
         <div class="card timer-block">
             <div class="card-title">⏱ Timer</div>
-            <div class="timer-display">00:00:00</div>
-            <div class="timer-label">No task selected</div>
+            <select id="timer-task-select"
+                    style="width:100%;padding:8px;margin-bottom:12px;border:1px solid #ccc;border-radius:4px;font-size:13px;box-sizing:border-box;">
+                <option value="">— Select a task —</option>
+            </select>
+            <div style="position:relative;width:200px;height:200px;margin:0 auto 10px;">
+                <svg width="200" height="200" viewBox="0 0 300 300">
+                    <circle class="progress-circle" cx="150" cy="150" r="140"
+                            fill="none" stroke="#e0e0e0" stroke-width="8"
+                            stroke-dasharray="879.2" stroke-dashoffset="0"></circle>
+                    <circle class="progress-arc" cx="150" cy="150" r="140"
+                            fill="none" stroke="#007bff" stroke-width="8"
+                            stroke-dasharray="879.2" stroke-dashoffset="879.2"
+                            transform="rotate(-90 150 150)"
+                            style="transition: stroke-dashoffset 0.5s linear;"></circle>
+                    <circle class="progress-point" cx="150" cy="10" r="8"
+                            fill="#dc3545"></circle>
+                </svg>
+                <div style="position:absolute;top:0;left:0;width:100%;height:100%;
+                            display:flex;flex-direction:column;justify-content:center;align-items:center;">
+                    <div id="timer-clock" class="timer-display"
+                         title="Click to set time">00:00:00</div>
+                </div>
+            </div>
+            <div id="timer-label" class="timer-label">No task selected</div>
             <div class="timer-controls">
-                <button class="btn-timer btn-start" disabled>▶ Start</button>
-                <button class="btn-timer btn-pause" disabled>⏸ Pause</button>
-                <button class="btn-timer btn-reset" disabled>↺ Reset</button>
+                <button id="timer-start" class="btn-timer btn-start">▶ Start</button>
+                <button id="timer-pause" class="btn-timer btn-pause" disabled>⏸ Pause</button>
+                <button id="timer-stop" class="btn-timer btn-stop" disabled>■ Stop</button>
+            </div>
+            <div style="background:#f0f4ff;border-radius:8px;padding:12px;margin-top:14px;border:1px solid #d0d8f0;">
+                <div style="font-size:12px;font-weight:bold;color:#555;margin-bottom:8px;text-align:center;">📊 Today</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">
+                    <div>
+                        <div id="daily-mood" style="font-size:1.3em;">😴</div>
+                    </div>
+                    <div>
+                        <div id="daily-tasks-count" style="font-weight:bold;color:#333;">0/0</div>
+                        <div style="font-size:10px;color:#888;">tasks</div>
+                    </div>
+                    <div>
+                        <div id="daily-time-spent" style="font-weight:bold;color:#333;">0m</div>
+                        <div style="font-size:10px;color:#888;">spent</div>
+                    </div>
+                </div>
+                <div id="daily-completion-bar" class="completion-bar"
+                     style="text-align:center;padding:6px;margin-top:8px;border-radius:4px;background:#fff;border:1px solid #ddd;">
+                    <span id="daily-completion-pct" style="font-size:12px;color:#888;">0% completed</span>
+                </div>
             </div>
         </div>
 
-        <!-- ============================================================= -->
-        <!--  BLOCK 3: Schedule (subtasks in progress)                     -->
-        <!-- ============================================================= -->
+        <!-- BLOCK 3: Schedule -->
         <div class="card schedule-block">
             <div class="card-title">📅 In Progress</div>
             <div class="schedule-list">
-                <!-- Placeholder items -->
                 <div class="schedule-item">
                     <input type="checkbox" class="cb-sm" disabled>
                     <div class="info">
@@ -380,9 +412,7 @@
             </div>
         </div>
 
-        <!-- ============================================================= -->
-        <!--  BLOCK 4: Log Window                                          -->
-        <!-- ============================================================= -->
+        <!-- BLOCK 4: Log Window -->
         <div class="card log-block">
             <div class="card-title">📜 Activity Log</div>
             <div class="log-body">
@@ -424,9 +454,7 @@
             </div>
         </div>
 
-        <!-- ============================================================= -->
-        <!--  BLOCK 5: Statistics                                          -->
-        <!-- ============================================================= -->
+        <!-- BLOCK 5: Statistics -->
         <div class="card stats-block">
             <div class="card-title">📊 Statistics</div>
             <div class="stats-grid">
@@ -449,7 +477,8 @@
             </div>
         </div>
 
-    </div><!-- /dashboard -->
+    </div>
 
+    <script src="/static/timer.js"></script>
 </body>
 </html>
