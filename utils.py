@@ -45,7 +45,19 @@ below.
 
 **For every project, task, and subtask you MUST provide:**
 
-- ``description`` — a clear, one-sentence description.
+- ``description`` — a clear, one-sentence description that answers
+  "How do I know this is done?"  Make the expected result measurable:
+  * For coding work: end with a deliverable reference such as
+    "— deliverable: a commit with <what the code does> and passing tests".
+    Example: "Implement user login endpoint — deliverable: a commit with
+    the /login route, session handling, and passing auth tests."
+  * For non-coding work: end with a verifiable artifact such as
+    "— deliverable: a screenshot of <artifact>" or
+    "— deliverable: a photo of <diagram/document>".
+    Example: "Design landing page — deliverable: a Figma screenshot of the
+    final mockup."
+    Example: "Research deployment options — deliverable: a comparison table
+    in a shared document."
 - ``estimated_time`` — estimated duration in **minutes** (integer).  Try to
   keep subtasks ≤ 120 min.  Think realistically.
 - ``priority`` — integer 1 (critical) to 5 (nice-to-have).  Default 3.
@@ -468,6 +480,10 @@ coarse task, break it into 2-4 finer-grained tasks, each with 1-4 subtasks.
 For each item provide: description, estimated_time (minutes), priority (1-5),
 tags (1-3 strings).
 
+**Description must be SMART-measurable — answer "How do I know this is done?":**
+- Coding tasks: end with "— deliverable: a commit with <result> and passing tests"
+- Non-coding tasks: end with "— deliverable: a <screenshot|photo|document> of <artifact>"
+
 Output ONLY a JSON array of task objects (no markdown fences):
 
 [
@@ -591,6 +607,10 @@ coarse task, break it into 2-4 finer-grained tasks, each with 1-4 subtasks.
 
 For each item provide: description, estimated_time (minutes), priority (1-5),
 tags (1-3 strings).
+
+**Description must be SMART-measurable — answer "How do I know this is done?":**
+- Coding tasks: end with "— deliverable: a commit with <result> and passing tests"
+- Non-coding tasks: end with "— deliverable: a <screenshot|photo|document> of <artifact>"
 
 Output ONLY a JSON array of task objects (no markdown fences):
 
