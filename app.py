@@ -45,6 +45,16 @@ import models  # noqa: E402,F401
 # ===========================================================================
 
 
+def _format_elapsed(seconds: int) -> str:
+    """Format seconds as H:MM:SS string (e.g. '0:42:15')."""
+    if not seconds:
+        return "0:00:00"
+    h = seconds // 3600
+    m = (seconds % 3600) // 60
+    s = seconds % 60
+    return f"{h}:{m:02d}:{s:02d}"
+
+
 def _get_or_create_tag(name: str) -> "models.Tag":
     """Return existing tag or create a new one."""
     name = name.strip().lower()
@@ -132,7 +142,20 @@ def home():
     projects = models.Project.query.filter_by(is_deleted=False).order_by(
         models.Project.created.desc()
     ).all()
-    return render_template("home.html", projects=projects)
+    in_progress_tasks = (
+        models.Task.query
+        .filter_by(is_deleted=False, is_completed=False, is_archived=False)
+        .filter(models.Task.first_run.isnot(None))
+        .order_by(models.Task.first_run.desc())
+        .limit(10)
+        .all()
+    )
+    return render_template(
+        "home.html",
+        projects=projects,
+        in_progress_tasks=in_progress_tasks,
+        format_elapsed=_format_elapsed,
+    )
 
 
 # ===========================================================================

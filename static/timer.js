@@ -448,6 +448,14 @@
     get currentTaskName() {
       return currentTaskName;
     },
+    selectAndStart: function(taskId, subtaskId, taskName, estimatedSeconds) {
+      Timer.selectTask(taskId, subtaskId, taskName, estimatedSeconds);
+      setTimeout(function() {
+        if (startBtn && !startBtn.disabled) {
+          startBtn.click();
+        }
+      }, 100);
+    },
   };
 
   // Boot when DOM is ready

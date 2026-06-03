@@ -385,30 +385,24 @@
         <div class="card schedule-block">
             <div class="card-title">📅 In Progress</div>
             <div class="schedule-list">
-                <div class="schedule-item">
-                    <input type="checkbox" class="cb-sm" disabled>
-                    <div class="info">
-                        <div class="subtitle">Add JWT token refresh</div>
-                        <div class="parent-info">Project: Refactor authentication module</div>
+                {% if in_progress_tasks %}
+                    {% for task in in_progress_tasks %}
+                    <div class="schedule-item">
+                        <input type="checkbox" class="cb-sm" disabled>
+                        <div class="info">
+                            <div class="subtitle">Task #{{ task.id }}</div>
+                            <div class="parent-info">Project: {{ task.project.description }}</div>
+                        </div>
+                        <span class="elapsed">↻ {{ format_elapsed(task.total_time_spent or 0) }}</span>
+                        <button class="btn-sm"
+                                style="background:#28a745;margin-left:6px;flex-shrink:0;"
+                                onclick="Timer.selectAndStart({{ task.id }}, null, 'Task #{{ task.id }}', {{ task.estimated_time or 0 }}); return false;"
+                                title="Start timer for this task">▶</button>
                     </div>
-                    <span class="elapsed">↻ 0:42:15</span>
-                </div>
-                <div class="schedule-item">
-                    <input type="checkbox" class="cb-sm" disabled>
-                    <div class="info">
-                        <div class="subtitle">Design email templates</div>
-                        <div class="parent-info">Project: Build notification service</div>
-                    </div>
-                    <span class="elapsed">↻ 1:03:50</span>
-                </div>
-                <div class="schedule-item">
-                    <input type="checkbox" class="cb-sm" disabled>
-                    <div class="info">
-                        <div class="subtitle">Write CSS for hero section</div>
-                        <div class="parent-info">Project: Redesign landing page</div>
-                    </div>
-                    <span class="elapsed">↻ 0:15:00</span>
-                </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">No tasks in progress. Start a timer to begin tracking.</div>
+                {% endif %}
             </div>
         </div>
 
