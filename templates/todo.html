@@ -179,7 +179,7 @@
             font-weight: bold;
             color: #fff;
         }
-        .badge-in_progress { background: #ffc107; color: #333; }
+        .badge-workflow { background: #ffc107; color: #333; }
         .badge-done { background: #28a745; }
 
         /* Level 2: Tasks */
@@ -370,7 +370,7 @@
      * Enforces: parent cannot be done while subtasks are active.
      */
     async function toggleStatus(cb, currentStatus) {
-        const newStatus = cb.checked ? 'done' : 'in_progress';
+        const newStatus = cb.checked ? 'done' : 'workflow';
         const path = JSON.parse(cb.dataset.path);
 
         // Optimistic revert — wait for server to confirm

@@ -142,7 +142,7 @@ def home():
     projects = models.Project.query.filter_by(is_deleted=False).order_by(
         models.Project.created.desc()
     ).all()
-    in_progress_tasks = (
+    workflow_tasks = (
         models.Task.query
         .filter_by(is_deleted=False, is_completed=False, is_archived=False)
         .filter(models.Task.first_run.isnot(None))
@@ -153,7 +153,7 @@ def home():
     return render_template(
         "home.html",
         projects=projects,
-        in_progress_tasks=in_progress_tasks,
+        workflow_tasks=workflow_tasks,
         format_elapsed=_format_elapsed,
     )
 

@@ -383,10 +383,10 @@
 
         <!-- BLOCK 3: Schedule -->
         <div class="card schedule-block">
-            <div class="card-title">📅 In Progress</div>
+            <div class="card-title">📅 Workflow</div>
             <div class="schedule-list">
-                {% if in_progress_tasks %}
-                    {% for task in in_progress_tasks %}
+                {% if workflow_tasks %}
+                    {% for task in workflow_tasks %}
                     <div class="schedule-item">
                         <input type="checkbox" class="cb-sm" disabled>
                         <div class="info">
@@ -401,7 +401,7 @@
                     </div>
                     {% endfor %}
                 {% else %}
-                    <div class="empty-state">No tasks in progress. Start a timer to begin tracking.</div>
+                    <div class="empty-state">No tasks in workflow. Start a timer to begin tracking.</div>
                 {% endif %}
             </div>
         </div>
