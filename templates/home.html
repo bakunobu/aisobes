@@ -316,9 +316,20 @@
                             {% else %}
                                 <span class="badge badge-active">active</span>
                             {% endif %}
-                            <span>{{ proj.tasks.filter_by(is_deleted=False).count() }} tasks</span>
+                            {% if proj.is_routine %}
+                                <span class="badge" style="background:#6f42c1;">🕐 routine</span>
+                            {% endif %}
+                            {% if not proj.is_routine %}
+                                <span>{{ proj.tasks.filter_by(is_deleted=False).count() }} tasks</span>
+                            {% else %}
+                                <span>{{ proj.routine_tasks.count() }} routines</span>
+                            {% endif %}
                         </span>
-                        <a href="/project/{{ proj.id }}"><button class="btn-sm">Open</button></a>
+                        {% if proj.is_routine %}
+                            <a href="/project/{{ proj.id }}/routine"><button class="btn-sm">Open</button></a>
+                        {% else %}
+                            <a href="/project/{{ proj.id }}"><button class="btn-sm">Open</button></a>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 {% else %}

@@ -261,6 +261,8 @@ def decompose_download():
 def project_detail(project_id):
     """Render the project detail page with task hierarchy."""
     project = models.Project.query.get_or_404(project_id)
+    if project.is_routine:
+        return redirect(url_for("project_routine", project_id=project_id))
     tasks = (
         models.Task.query
         .filter_by(project_id=project_id, is_deleted=False)
@@ -268,6 +270,146 @@ def project_detail(project_id):
         .all()
     )
     return render_template("project.html", project=project, tasks=tasks)
+
+
+# ===========================================================================
+# Routine Project — manage routine tasks
+# ===========================================================================
+
+
+@app.route("/project/<int:project_id>/routine")
+def project_routine(project_id):
+    """Render the routine project page with create/edit form and task list."""
+    project = models.Project.query.get_or_404(project_id)
+    if not project.is_routine:
+        return redirect(url_for("project_detail", project_id=project_id))
+    routine_tasks = (
+        models.RoutineTask.query
+        .filter_by(project_id=project_id)
+        .order_by(models.RoutineTask.created.desc())
+        .all()
+    )
+    day_names = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+    return render_template(
+        "routine.html",
+        project=project,
+        routine_tasks=routine_tasks,
+        day_names=day_names,
+    )
+
+
+@app.route("/project/<int:project_id>/routine/create", methods=["POST"])
+def project_routine_create(project_id):
+    """Create a new routine task."""
+    project = models.Project.query.get_or_404(project_id)
+    if not project.is_routine:
+        return redirect(url_for("project_detail", project_id=project_id))
+
+    description = request.form.get("description", "").strip()
+    if not description:
+        flash("Description is required.", "error")
+        return redirect(url_for("project_routine", project_id=project_id))
+
+    selected_days = request.form.getlist("days_of_week")
+    days_of_week = ",".join(selected_days) if selected_days else ""
+
+    time_of_day = request.form.get("time_of_day", "09:00").strip()
+    duration = int(request.form.get("duration", 30) or 30)
+    start_date_str = request.form.get("start_date", "").strip()
+    end_date_str = request.form.get("end_date", "").strip()
+
+    start_date = (
+        datetime.strptime(start_date_str, "%Y-%m-%d").date()
+        if start_date_str else None
+    )
+    end_date = (
+        datetime.strptime(end_date_str, "%Y-%m-%d").date()
+        if end_date_str else None
+    )
+
+    routine_task = models.RoutineTask(
+        project_id=project.id,
+        description=description,
+        days_of_week=days_of_week,
+        time_of_day=time_of_day,
+        duration=duration,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    db.session.add(routine_task)
+    db.session.commit()
+    flash("Routine task created.", "success")
+    return redirect(url_for("project_routine", project_id=project_id))
+
+
+@app.route(
+    "/project/<int:project_id>/routine/<int:task_id>/edit",
+    methods=["POST"],
+)
+def project_routine_edit(project_id, task_id):
+    """Edit an existing routine task."""
+    project = models.Project.query.get_or_404(project_id)
+    if not project.is_routine:
+        return redirect(url_for("project_detail", project_id=project_id))
+
+    routine_task = models.RoutineTask.query.filter_by(
+        id=task_id, project_id=project_id
+    ).first_or_404()
+
+    description = request.form.get("description", "").strip()
+    if not description:
+        flash("Description is required.", "error")
+        return redirect(url_for("project_routine", project_id=project_id))
+
+    selected_days = request.form.getlist("days_of_week")
+    days_of_week = ",".join(selected_days) if selected_days else ""
+
+    routine_task.description = description
+    routine_task.days_of_week = days_of_week
+    routine_task.time_of_day = request.form.get("time_of_day", "09:00").strip()
+    routine_task.duration = int(request.form.get("duration", 30) or 30)
+
+    start_date_str = request.form.get("start_date", "").strip()
+    end_date_str = request.form.get("end_date", "").strip()
+    routine_task.start_date = (
+        datetime.strptime(start_date_str, "%Y-%m-%d").date()
+        if start_date_str else None
+    )
+    routine_task.end_date = (
+        datetime.strptime(end_date_str, "%Y-%m-%d").date()
+        if end_date_str else None
+    )
+
+    is_active = request.form.get("is_active")
+    routine_task.is_active = is_active == "1"
+
+    db.session.commit()
+    flash("Routine task updated.", "success")
+    return redirect(url_for("project_routine", project_id=project_id))
+
+
+@app.route(
+    "/project/<int:project_id>/routine/<int:task_id>/delete",
+    methods=["POST"],
+)
+def project_routine_delete(project_id, task_id):
+    """Delete a routine task."""
+    project = models.Project.query.get_or_404(project_id)
+    if not project.is_routine:
+        return redirect(url_for("project_detail", project_id=project_id))
+
+    routine_task = models.RoutineTask.query.filter_by(
+        id=task_id, project_id=project_id
+    ).first_or_404()
+    db.session.delete(routine_task)
+    db.session.commit()
+    flash("Routine task deleted.", "success")
+    return redirect(url_for("project_routine", project_id=project_id))
+
+
+# ===========================================================================
+# Project detail — edit
+# ===========================================================================
 
 
 @app.route("/project/<int:project_id>/edit", methods=["POST"])

@@ -117,6 +117,7 @@ class Project(db.Model):
     is_archived = db.Column(db.Boolean, default=False)
     is_deleted = db.Column(db.Boolean, default=False)  # soft delete
     priority = db.Column(db.Integer, default=3)  # 1=highest, 5=lowest
+    is_routine = db.Column(db.Boolean, default=False)  # routine project flag
 
     # Relationships
     tags = db.relationship("Tag", secondary="project_tags", back_populates="projects")
@@ -298,3 +299,36 @@ class TimerSession(db.Model):
     def __repr__(self):
         target = f"task={self.task_id}" if self.task_id else f"subtask={self.subtask_id}"
         return f"<TimerSession {self.id} ({target}) status={self.status}>"
+
+
+# ===========================================================================
+# RoutineTask — recurring tasks for routine projects (no subtasks, fixed schedule)
+# ===========================================================================
+
+
+class RoutineTask(db.Model):
+    __tablename__ = "routine_tasks"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    days_of_week = db.Column(
+        db.String(50), default=""
+    )  # comma-separated: "mon,tue,wed"
+    time_of_day = db.Column(db.String(5), default="09:00")  # "HH:MM"
+    duration = db.Column(db.Integer, default=30)  # minutes
+    start_date = db.Column(db.Date, nullable=True)
+    end_date = db.Column(db.Date, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    project = db.relationship(
+        "Project", backref=db.backref("routine_tasks", lazy="dynamic")
+    )
+
+    def __repr__(self):
+        return (
+            f"<RoutineTask {self.id} (project={self.project_id}) "
+            f"{self.days_of_week}@{self.time_of_day} {self.duration}min>"
+        )
