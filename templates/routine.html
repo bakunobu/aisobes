@@ -284,6 +284,8 @@
 
     <div class="breadcrumb">
         <a href="/">← Dashboard</a>
+        &nbsp;|&nbsp;
+        <a href="{{ url_for('project_reminders', project_id=project.id) }}">🔔 Reminders</a>
     </div>
 
     <!-- Flash messages -->
@@ -304,6 +306,8 @@
         </h1>
         <div style="font-size:13px;color:#888;">
             Routine project — fixed-schedule recurring tasks
+            &nbsp;|&nbsp;
+            <a href="{{ url_for('project_reminders', project_id=project.id) }}">Switch to Reminders</a>
         </div>
     </div>
 

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ project.name }} - Reminders</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4a6fa5;
+            --secondary: #6b8cbc;
+            --light: #f0f4ff;
+            --dark: #2c3e50;
+            --danger: #e74c3c;
+            --success: #2ecc71;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .header h1 {
+            color: var(--dark);
+            font-size: 28px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background: white;
+            font-weight: bold;
+            border-bottom: 2px solid var(--primary);
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .card-title {
+            font-size: 18px;
+            color: var(--dark);
+        }
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        .btn-danger {
+            background-color: var(--danger);
+            color: white;
+        }
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 13px;
+        }
+        .reminder-list {
+            list-style: none;
+        }
+        .reminder-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .reminder-item:last-child {
+            border-bottom: none;
+        }
+        .reminder-info {
+            flex: 1;
+        }
+        .reminder-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .reminder-meta {
+            display: flex;
+            font-size: 13px;
+            color: #666;
+        }
+        .reminder-meta span {
+            margin-right: 15px;
+        }
+        .reminder-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 15px;
+        }
+        .btn-row {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ project.name }}</h1>
+            <a href="{{ url_for('home') }}" class="btn btn-primary">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+        </div>
+
+        <div class="tabs">
+            <a href="{{ url_for('project_routine', project_id=project.id) }}" class="tab">
+                <i class="fas fa-sync-alt"></i> Routines
+            </a>
+            <div class="tab active">
+                <i class="fas fa-bell"></i> Reminders
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Create New Reminder</h2>
+            </div>
+            <form action="#" method="post">
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <input type="text" id="description" name="description" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="due_datetime">Due Date & Time</label>
+                    <input type="datetime-local" id="due_datetime" name="due_datetime" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="duration">Duration (minutes)</label>
+                    <input type="number" id="duration" name="duration" class="form-control" value="30" min="1">
+                </div>
+                <div class="btn-row">
+                    <button type="reset" class="btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Reminder</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Upcoming Reminders</h2>
+            </div>
+            <ul class="reminder-list">
+                {% for reminder in reminder_tasks %}
+                <li class="reminder-item">
+                    <div class="reminder-info">
+                        <div class="reminder-title">{{ reminder.description }}</div>
+                        <div class="reminder-meta">
+                            <span><i class="far fa-clock"></i> {{ reminder.due_datetime.strftime('%Y-%m-%d %H:%M') }}</span>
+                            <span><i class="fas fa-hourglass-half"></i> {{ reminder.duration }} min</span>
+                            <span>
+                                {% if reminder.is_completed %}
+                                <i class="fas fa-check-circle" style="color: var(--success);"></i> Completed
+                                {% else %}
+                                <i class="fas fa-exclamation-circle" style="color: var(--danger);"></i> Pending
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="reminder-actions">
+                        <button class="btn btn-sm"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
+                    </div>
+                </li>
+                {% else %}
+                <li class="reminder-item">
+                    <div class="reminder-info">
+                        <div class="reminder-title">No reminders yet</div>
+                        <div class="reminder-meta">Create your first reminder using the form above</div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

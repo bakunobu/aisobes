@@ -302,6 +302,31 @@ def project_routine(project_id):
 def project_routine_create(project_id):
     """Create a new routine task."""
     project = models.Project.query.get_or_404(project_id)
+
+
+# ===========================================================================
+# Reminder Project — manage reminder tasks
+# ===========================================================================
+
+
+@app.route("/project/<int:project_id>/reminders")
+def project_reminders(project_id):
+    """Render the reminder project page with create/edit form and task list."""
+    project = models.Project.query.get_or_404(project_id)
+    if not project.is_routine:
+        return redirect(url_for("project_detail", project_id=project_id))
+    
+    reminder_tasks = (
+        models.ReminderTask.query
+        .filter_by(project_id=project_id)
+        .order_by(models.ReminderTask.due_datetime.desc())
+        .all()
+    )
+    return render_template(
+        "reminders.html",
+        project=project,
+        reminder_tasks=reminder_tasks,
+    )
     if not project.is_routine:
         return redirect(url_for("project_detail", project_id=project_id))
 
@@ -405,6 +430,96 @@ def project_routine_delete(project_id, task_id):
     db.session.commit()
     flash("Routine task deleted.", "success")
     return redirect(url_for("project_routine", project_id=project_id))
+
+
+# ===========================================================================
+# Reminder Project — manage reminder tasks
+# ===========================================================================
+
+
+@app.route("/project/<int:project_id>/reminders")
+def project_reminders(project_id):
+    """Render the reminder project page with create/edit form and task list."""
+    project = models.Project.query.get_or_404(project_id)
+    if not project.is_routine:
+        return redirect(url_for("project_detail", project_id=project_id))
+    
+    reminder_tasks = (
+        models.ReminderTask.query
+        .filter_by(project_id=project_id)
+        .order_by(models.ReminderTask.due_datetime.desc())
+        .all()
+    )
+    return render_template(
+        "reminders.html",
+        project=project,
+        reminder_tasks=reminder_tasks,
+    )
+
+
+@app.route("/project/<int:project_id>/reminders/create", methods=["POST"])
+def project_reminder_create(project_id):
+    """Create a new reminder task."""
+    project = models.Project.query.get_or_404(project_id)
+    if not project.is_routine:
+        return redirect(url_for("project_detail", project_id=project_id))
+    
+    description = request.form.get("description", "").strip()
+    due_datetime_str = request.form.get("due_datetime")
+    duration = request.form.get("duration", 30)
+    
+    if not description or not due_datetime_str:
+        flash("Description and due date/time are required", "error")
+        return redirect(url_for("project_reminders", project_id=project_id))
+    
+    try:
+        due_datetime = datetime.strptime(due_datetime_str, "%Y-%m-%dT%H:%M")
+    except ValueError:
+        flash("Invalid date/time format", "error")
+        return redirect(url_for("project_reminders", project_id=project_id))
+    
+    reminder = models.ReminderTask(
+        project_id=project_id,
+        description=description,
+        due_datetime=due_datetime,
+        duration=int(duration),
+        is_completed=False,
+        is_active=True
+    )
+    
+    db.session.add(reminder)
+    db.session.commit()
+    
+    flash("Reminder created successfully", "success")
+    return redirect(url_for("project_reminders", project_id=project_id))
+
+
+@app.route("/project/<int:project_id>/reminders/<int:task_id>/delete", methods=["POST"])
+def project_reminder_delete(project_id, task_id):
+    """Delete a reminder task."""
+    reminder = models.ReminderTask.query.get_or_404(task_id)
+    if reminder.project_id != project_id:
+        abort(404)
+    
+    db.session.delete(reminder)
+    db.session.commit()
+    
+    flash("Reminder deleted", "success")
+    return redirect(url_for("project_reminders", project_id=project_id))
+
+
+@app.route("/project/<int:project_id>/reminders/<int:task_id>/toggle", methods=["POST"])
+def project_reminder_toggle(project_id, task_id):
+    """Toggle completion status of a reminder task."""
+    reminder = models.ReminderTask.query.get_or_404(task_id)
+    if reminder.project_id != project_id:
+        abort(404)
+    
+    reminder.is_completed = not reminder.is_completed
+    db.session.commit()
+    
+    flash(f"Reminder marked as {'completed' if reminder.is_completed else 'pending'}", "success")
+    return redirect(url_for("project_reminders", project_id=project_id))
 
 
 # ===========================================================================

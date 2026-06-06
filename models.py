@@ -327,8 +327,27 @@ class RoutineTask(db.Model):
         "Project", backref=db.backref("routine_tasks", lazy="dynamic")
     )
 
-    def __repr__(self):
-        return (
-            f"<RoutineTask {self.id} (project={self.project_id}) "
-            f"{self.days_of_week}@{self.time_of_day} {self.duration}min>"
-        )
+
+# ===========================================================================
+# ReminderTask — one-off timed reminders for routine projects
+# ===========================================================================
+
+
+class ReminderTask(db.Model):
+    __tablename__ = "reminder_tasks"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    due_datetime = db.Column(db.DateTime, nullable=False)
+    duration = db.Column(db.Integer, default=30)  # minutes
+    is_completed = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    project = db.relationship(
+        "Project", backref=db.backref("reminder_tasks", lazy="dynamic")
+    )
+    
+
