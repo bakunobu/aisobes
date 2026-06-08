@@ -438,7 +438,7 @@ def project_routine_delete(project_id, task_id):
 
 
 @app.route("/project/<int:project_id>/reminders")
-def project_reminders(project_id):
+def project_reminders_list(project_id):
     """Render the reminder project page with create/edit form and task list."""
     project = models.Project.query.get_or_404(project_id)
     if not project.is_routine:
@@ -933,6 +933,173 @@ def api_timer_stats():
                 stat["successful_runs"] / stat["total_attempts"] * 100
             )
     return {"success": True, "stats": list(stats_map.values())}
+
+
+# ===========================================================================
+# Quest endpoints
+# ===========================================================================
+
+
+def _compute_quest_progress(quest: models.Quest) -> tuple[int, int, str]:
+    """Return (current_value, goal_value, status_str)."""
+    if quest.quest_type == 'daily_tasks':
+        # Count tasks completed today matching target
+        today = datetime.now(timezone.utc).date()
+        tasks_done = models.Task.query.filter_by(
+            is_completed=True,
+            is_deleted=False
+        ).filter(
+            models.Task.created >= today
+        ).count()
+        return (tasks_done, quest.goal_value, f"{tasks_done}/{quest.goal_value} tasks today")
+
+    elif quest.quest_type == 'daily_time':
+        today = datetime.now(timezone.utc).date()
+        sessions = models.TimerSession.query.filter(
+            models.TimerSession.created >= today,
+            models.TimerSession.status.in_(["completed", "stopped"])
+        ).all()
+        seconds = sum(s.actual_duration or 0 for s in sessions)
+        return (seconds, quest.goal_value, f"{_format_elapsed(seconds)} / {_format_elapsed(quest.goal_value)} today")
+
+    elif quest.quest_type == 'total_time':
+        total = 0  # TODO: Implement cumulative time tracking
+        return (total, quest.goal_value, f"{_format_elapsed(total)} / {_format_elapsed(quest.goal_value)} total")
+
+    elif quest.quest_type == 'complete_task':
+        task = models.Task.query.get(quest.target_id)
+        done = 1 if task and task.is_completed else 0
+        return (done, 1, "✓ Completed" if done else "○ Pending")
+
+
+@app.route("/quests", methods=["GET"])
+def quests_list():
+    """Main quests page: list all + create form."""
+    quests = models.Quest.query.order_by(models.Quest.created.desc()).all()
+    return render_template("quests.html", quests=quests)
+
+
+@app.route("/quests/create", methods=["POST"])
+def quest_create():
+    """Create a new quest."""
+    name = request.form.get("name")
+    quest_type = request.form.get("quest_type")
+    target_type = request.form.get("target_type")
+    goal_value = int(request.form.get("goal_value", 0))
+    award_type = request.form.get("award_type")
+    award_description = request.form.get("award_description", "")
+    
+    if not name or not quest_type:
+        flash("Name and quest type are required", "error")
+        return redirect(url_for("quests_list"))
+    
+    quest = models.Quest(
+        name=name,
+        quest_type=quest_type,
+        target_type=target_type,
+        goal_value=goal_value,
+        award_type=award_type,
+        award_description=award_description,
+        is_active=True
+    )
+    
+    # Handle target references
+    if target_type == "project":
+        quest.target_id = int(request.form.get("target_project_id"))
+    elif target_type == "task":
+        quest.target_id = int(request.form.get("target_task_id"))
+    elif target_type == "subtask":
+        quest.target_id = int(request.form.get("target_subtask_id"))
+    elif target_type == "tag":
+        quest.target_tag = request.form.get("target_tag")
+    
+    db.session.add(quest)
+    db.session.commit()
+    flash("Quest created successfully", "success")
+    return redirect(url_for("quests_list"))
+
+
+@app.route("/quests/<int:quest_id>/edit", methods=["POST"])
+def quest_edit(quest_id):
+    """Edit an existing quest."""
+    quest = models.Quest.query.get_or_404(quest_id)
+    quest.name = request.form.get("name", quest.name)
+    quest.quest_type = request.form.get("quest_type", quest.quest_type)
+    quest.target_type = request.form.get("target_type", quest.target_type)
+    quest.goal_value = int(request.form.get("goal_value", quest.goal_value))
+    quest.award_type = request.form.get("award_type", quest.award_type)
+    quest.award_description = request.form.get("award_description", quest.award_description)
+    quest.is_active = bool(request.form.get("is_active"))
+    
+    # Handle target references
+    if quest.target_type == "project":
+        quest.target_id = int(request.form.get("target_project_id"))
+    elif quest.target_type == "task":
+        quest.target_id = int(request.form.get("target_task_id"))
+    elif quest.target_type == "subtask":
+        quest.target_id = int(request.form.get("target_subtask_id"))
+    elif quest.target_type == "tag":
+        quest.target_tag = request.form.get("target_tag")
+    
+    db.session.commit()
+    flash("Quest updated successfully", "success")
+    return redirect(url_for("quests_list"))
+
+
+@app.route("/quests/<int:quest_id>/delete", methods=["POST"])
+def quest_delete(quest_id):
+    """Delete a quest and its logs."""
+    quest = models.Quest.query.get_or_404(quest_id)
+    
+    # Delete associated logs
+    models.QuestLog.query.filter_by(quest_id=quest_id).delete()
+    
+    db.session.delete(quest)
+    db.session.commit()
+    flash("Quest deleted", "success")
+    return redirect(url_for("quests_list"))
+
+
+@app.route("/quests/<int:quest_id>/toggle", methods=["POST"])
+def quest_toggle(quest_id):
+    """Toggle quest active status."""
+    quest = models.Quest.query.get_or_404(quest_id)
+    quest.is_active = not quest.is_active
+    db.session.commit()
+    status = "active" if quest.is_active else "inactive"
+    flash(f"Quest marked as {status}", "success")
+    return redirect(url_for("quests_list"))
+
+
+@app.route("/quests/<int:quest_id>/check", methods=["POST"])
+def quest_check(quest_id):
+    """Check progress and log results."""
+    quest = models.Quest.query.get_or_404(quest_id)
+    current, goal, status_str = _compute_quest_progress(quest)
+    
+    # Create log entry
+    log = models.QuestLog(
+        quest_id=quest.id,
+        event_type="progress",
+        value=current,
+        description=f"Progress: {status_str}"
+    )
+    db.session.add(log)
+    
+    # Check if quest completed
+    if current >= goal:
+        completed_log = models.QuestLog(
+            quest_id=quest.id,
+            event_type="completed",
+            value=current,
+            description=f"Quest completed! {status_str}"
+        )
+        db.session.add(completed_log)
+        quest.is_active = False
+    
+    db.session.commit()
+    flash(f"Progress checked: {status_str}", "success")
+    return redirect(url_for("quests_list"))
 
 
 # ===========================================================================

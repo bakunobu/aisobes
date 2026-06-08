@@ -351,3 +351,50 @@ class ReminderTask(db.Model):
     )
     
 
+# ===========================================================================
+# Quest — challenges with rewards
+# ===========================================================================
+
+
+class Quest(db.Model):
+    __tablename__ = "quests"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.Text, nullable=False)
+    quest_type = db.Column(db.String(20), nullable=False)  # daily_tasks/daily_time/total_time/complete_task
+    target_type = db.Column(db.String(20), nullable=False)  # all/project/tag/task/subtask
+    target_id = db.Column(db.Integer, nullable=True)  # FK to project/task/subtask
+    target_tag = db.Column(db.String(120), nullable=True)  # tag name
+    goal_value = db.Column(db.Integer, nullable=False)  # tasks count or seconds
+    award_type = db.Column(db.String(20), nullable=False)  # goods/budget/free_time
+    award_description = db.Column(db.Text, nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    start_date = db.Column(db.Date, nullable=True)
+    end_date = db.Column(db.Date, nullable=True)
+    created = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    def __repr__(self):
+        return f"<Quest {self.id}: {self.name[:20]!r}>"
+
+
+# ===========================================================================
+# QuestLog — progress tracking
+# ===========================================================================
+
+
+class QuestLog(db.Model):
+    __tablename__ = "quest_logs"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    quest_id = db.Column(db.Integer, db.ForeignKey("quests.id"), nullable=False)
+    event_type = db.Column(db.String(20), nullable=False)  # progress/milestone/completed/failed
+    value = db.Column(db.Integer, nullable=False)  # numeric progress at this point
+    description = db.Column(db.Text, nullable=False)
+    created = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    quest = db.relationship("Quest", backref=db.backref("logs", lazy="dynamic"))
+    
+    def __repr__(self):
+        return f"<QuestLog {self.id} for quest={self.quest_id} ({self.event_type})>"
+

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>⚔️ Quests</title>
+    <style>
+        /* Reuse existing styles from routine.html */
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .breadcrumb {
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #888;
+        }
+        .breadcrumb a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .page-header h1 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            color: #333;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .badge-quest { background: #4a6fa5; }
+        .badge-active { background: #28a745; }
+        .badge-inactive { background: #6c757d; }
+        .card {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 15px;
+            font-weight: bold;
+            color: #333;
+            margin: 0 0 16px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .form-group {
+            margin-bottom: 12px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 4px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .btn {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            color: #fff;
+            background: #007bff;
+        }
+        .quest-list {
+            list-style: none;
+            padding: 0;
+        }
+        .quest-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 14px 16px;
+            margin-bottom: 8px;
+            background: #fafafa;
+        }
+        .quest-item .top-row {
+            display: flex;
+            justify-content: space-between;
+        }
+        .quest-item .name {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .quest-item .details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 6px;
+        }
+        .progress-bar {
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            margin: 8px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #4a6fa5;
+        }
+        .log-entry {
+            font-size: 12px;
+            padding: 4px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="breadcrumb">
+        <a href="/">← Dashboard</a>
+    </div>
+
+    <div class="page-header">
+        <h1>⚔️ Quests</h1>
+    </div>
+
+    <!-- Create Quest Form -->
+    <div class="card">
+        <div class="card-title">➕ New Quest</div>
+        <form method="POST" action="/quests/create">
+            <div class="form-group">
+                <label>Quest Name</label>
+                <input type="text" name="name" placeholder="Daily coding challenge" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Quest Type</label>
+                <select name="quest_type" required>
+                    <option value="daily_tasks">Complete X tasks daily</option>
+                    <option value="daily_time">Spend X time daily</option>
+                    <option value="total_time">Spend X time total</option>
+                    <option value="complete_task">Complete specific task</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Goal Value</label>
+                <input type="number" name="goal_value" min="1" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Award Type</label>
+                <select name="award_type" required>
+                    <option value="goods">Physical Goods</option>
+                    <option value="budget">Extra Budget</option>
+                    <option value="free_time">Free Time</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Award Description</label>
+                <textarea name="award_description" placeholder="e.g. 1 hour of gaming time" required></textarea>
+            </div>
+            
+            <button type="submit" class="btn">Create Quest</button>
+        </form>
+    </div>
+
+    <!-- Quest List -->
+    <div class="card">
+        <div class="card-title">📜 Active Quests</div>
+        <ul class="quest-list">
+            {% for quest in quests %}
+            <li class="quest-item">
+                <div class="top-row">
+                    <div>
+                        <div class="name">{{ quest.name }}</div>
+                        <div class="details">
+                            {{ quest.quest_type }} • Goal: {{ quest.goal_value }} • 
+                            Award: {{ quest.award_description }}
+                        </div>
+                        
+                        <!-- Progress Bar -->
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 50%"></div>
+                        </div>
+                        <div>50% complete</div>
+                    </div>
+                    <div>
+                        <button class="btn" onclick="checkQuest({{ quest.id }})">Check Progress</button>
+                    </div>
+                </div>
+                
+                <!-- Quest Log -->
+                <div class="log-entries">
+                    <div class="log-entry">[2026-06-08] Started quest</div>
+                    <div class="log-entry">[2026-06-08] Progress: 3/5 tasks</div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <script>
+        function checkQuest(questId) {
+            fetch(`/quests/${questId}/check`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            }).then(response => {
+                if (response.ok) {
+                    location.reload();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
