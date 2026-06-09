@@ -13,6 +13,7 @@ entity level via the polymorphic UserEntityRole table.
 """
 
 from datetime import datetime, timezone
+from sqlalchemy import select, exists, and_, or_
 
 from extensions import db
 
@@ -130,6 +131,40 @@ class Project(db.Model):
         lazy="dynamic",
     )
 
+    @hybrid_property
+    def is_blocked(self):
+        """True if any prerequisite project is incomplete."""
+        return db.session.query(EntityDependency).filter(
+            EntityDependency.entity_type == 'project',
+            EntityDependency.entity_id == self.id,
+            EntityDependency.prerequisite_type == 'project',
+        ).join(
+            Project,
+            EntityDependency.prerequisite_id == Project.id,
+        ).filter(
+            Project.is_completed == False,
+            Project.is_deleted == False,
+        ).count() > 0
+
+    @is_blocked.expression
+    def is_blocked(cls):
+        return exists(
+            select([1])
+            .select_from(EntityDependency.__table__.join(
+                Project.__table__,
+                EntityDependency.prerequisite_id == Project.__table__.c.id,
+            ))
+            .where(
+                and_(
+                    EntityDependency.entity_type == 'project',
+                    EntityDependency.entity_id == cls.id,
+                    EntityDependency.prerequisite_type == 'project',
+                    Project.__table__.c.is_completed == False,
+                    Project.__table__.c.is_deleted == False,
+                )
+            )
+        )
+
     def __repr__(self):
         return f"<Project {self.id}: {self.description[:40]!r}>"
 
@@ -179,6 +214,99 @@ class Task(db.Model):
         lazy="dynamic",
     )
 
+    @hybrid_property
+    def is_blocked(self):
+        """True if blocked by incomplete prerequisite task OR incomplete prerequisite project."""
+        # A) Blocked by another task
+        task_blocked = db.session.query(EntityDependency).filter(
+            EntityDependency.entity_type == 'task',
+            EntityDependency.entity_id == self.id,
+            EntityDependency.prerequisite_type == 'task',
+        ).join(
+            Task,
+            EntityDependency.prerequisite_id == Task.id,
+        ).filter(
+            Task.is_completed == False,
+            Task.is_deleted == False,
+        ).count() > 0
+
+        # B) Blocked by a prerequisite project
+        project_blocked = db.session.query(EntityDependency).filter(
+            EntityDependency.entity_type == 'task',
+            EntityDependency.entity_id == self.id,
+            EntityDependency.prerequisite_type == 'project',
+        ).join(
+            Project,
+            EntityDependency.prerequisite_id == Project.id,
+        ).filter(
+            Project.is_completed == False,
+            Project.is_deleted == False,
+        ).count() > 0
+
+        # C) Transitive: owning project is itself blocked
+        owner_blocked = False
+        if self.project:
+            owner_blocked = self.project.is_blocked
+
+        return task_blocked or project_blocked or owner_blocked
+
+    @is_blocked.expression
+    def is_blocked(cls):
+        task_block = exists(
+            select([1])
+            .select_from(EntityDependency.__table__.join(
+                Task.__table__,
+                EntityDependency.prerequisite_id == Task.__table__.c.id,
+            ))
+            .where(
+                and_(
+                    EntityDependency.entity_type == 'task',
+                    EntityDependency.entity_id == cls.id,
+                    EntityDependency.prerequisite_type == 'task',
+                    Task.__table__.c.is_completed == False,
+                    Task.__table__.c.is_deleted == False,
+                )
+            )
+        )
+
+        project_block = exists(
+            select([1])
+            .select_from(EntityDependency.__table__.join(
+                Project.__table__,
+                EntityDependency.prerequisite_id == Project.__table__.c.id,
+            ))
+            .where(
+                and_(
+                    EntityDependency.entity_type == 'task',
+                    EntityDependency.entity_id == cls.id,
+                    EntityDependency.prerequisite_type == 'project',
+                    Project.__table__.c.is_completed == False,
+                    Project.__table__.c.is_deleted == False,
+                )
+            )
+        )
+
+        # Transitive: owner project blocked
+        owner_block = exists(
+            select([1])
+            .select_from(EntityDependency.__table__.join(
+                Project.__table__,
+                EntityDependency.prerequisite_id == Project.__table__.c.id,
+            ))
+            .where(
+                and_(
+                    EntityDependency.entity_type == 'project',
+                    EntityDependency.entity_id == cls.project_id,
+                    EntityDependency.prerequisite_type == 'project',
+                    Project.__table__.c.is_completed == False,
+                    Project.__table__.c.is_deleted == False,
+                )
+            )
+        )
+
+        from sqlalchemy import or_
+        return or_(task_block, project_block, owner_block)
+
     def __repr__(self):
         return f"<Task {self.id} (project={self.project_id})>"
 
@@ -189,9 +317,43 @@ class Task(db.Model):
 
 class TaskTag(db.Model):
     __tablename__ = "task_tags"
-
+    
     task_id = db.Column(db.Integer, db.ForeignKey("tasks.id"), primary_key=True)
     tag_id = db.Column(db.Integer, db.ForeignKey("tags.id"), primary_key=True)
+
+
+# ===========================================================================
+# EntityDependency — polymorphic blocking dependencies
+# ===========================================================================
+
+class EntityDependency(db.Model):
+    """Polymorphic dependency: entity → prerequisite (project or task level)."""
+    __tablename__ = "entity_dependencies"
+
+    id = db.Column(db.Integer, primary_key=True)
+    entity_type = db.Column(
+        db.String(20), nullable=False
+    )  # 'project' | 'task'
+    entity_id = db.Column(db.Integer, nullable=False)
+    prerequisite_type = db.Column(
+        db.String(20), nullable=False
+    )  # 'project' | 'task'
+    prerequisite_id = db.Column(db.Integer, nullable=False)
+    created = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "entity_type", "entity_id",
+            "prerequisite_type", "prerequisite_id",
+            name="uq_entity_dependency",
+        ),
+    )
+
+    def __repr__(self):
+        return (
+            f"<EntityDependency {self.entity_type}#{self.entity_id}"
+            f" ← {self.prerequisite_type}#{self.prerequisite_id}>"
+        )
 
 
 # ===========================================================================

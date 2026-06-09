@@ -58,6 +58,14 @@ below.
     final mockup."
     Example: "Research deployment options — deliverable: a comparison table
     in a shared document."
+- ``depends_on`` — OPTIONAL array of 0-based indices.  OMIT or set [] when
+  the item can start immediately.
+  * On a PROJECT: indices into the parent ``problems`` array — use when this
+    project cannot start until another project in this plan is completed.
+  * On a TASK: indices into the enclosing ``tasks`` array — use when this
+    task needs another task in the same project to finish first (because it
+    consumes that task's output).
+  * Subtasks do NOT have ``depends_on``.
 - ``estimated_time`` — estimated duration in **minutes** (integer).  Try to
   keep subtasks ≤ 120 min.  Think realistically.
 - ``priority`` — integer 1 (critical) to 5 (nice-to-have).  Default 3.
@@ -71,12 +79,14 @@ below.
     "problems": [
         {
             "description": "<project description>",
+            "depends_on": [],
             "estimated_time": 480,
             "priority": 2,
             "tags": ["tag1"],
             "tasks": [
                 {
                     "description": "<task description>",
+                    "depends_on": [],
                     "estimated_time": 240,
                     "priority": 2,
                     "tags": ["tag1", "tag2"],
@@ -172,6 +182,7 @@ def _normalise_decomposed(data: dict) -> dict:
     if not isinstance(data["problems"], list):
         data["problems"] = []
 
+    # Set defaults for depends_on fields
     for prob in data["problems"]:
         if not isinstance(prob, dict):
             continue
@@ -180,6 +191,7 @@ def _normalise_decomposed(data: dict) -> dict:
         prob.setdefault("priority", 3)
         prob.setdefault("tags", [])
         prob.setdefault("tasks", [])
+        prob.setdefault("depends_on", [])  # Project-level dependencies
 
         if not isinstance(prob["tasks"], list):
             prob["tasks"] = []
@@ -192,6 +204,7 @@ def _normalise_decomposed(data: dict) -> dict:
             task.setdefault("priority", 3)
             task.setdefault("tags", [])
             task.setdefault("subtasks", [])
+            task.setdefault("depends_on", [])  # Task-level dependencies
 
             if not isinstance(task["subtasks"], list):
                 task["subtasks"] = []
@@ -204,7 +217,92 @@ def _normalise_decomposed(data: dict) -> dict:
                 sub.setdefault("priority", 3)
                 sub.setdefault("tags", [])
 
+    # Validate depends_on indices and detect cycles
+    _validate_depends_on(data)
+    
     return data
+
+
+def _validate_depends_on(data: dict) -> None:
+    """Validate depends_on indices and detect dependency cycles."""
+    # Validate project dependencies
+    projects = data["problems"]
+    project_graph = {}
+    
+    for i, project in enumerate(projects):
+        if not isinstance(project, dict):
+            continue
+            
+        depends_on = project.get("depends_on", [])
+        if not isinstance(depends_on, list):
+            raise ValueError(f"Project {i}: 'depends_on' must be a list")
+            
+        for dep_idx in depends_on:
+            if not isinstance(dep_idx, int):
+                raise ValueError(f"Project {i}: Dependency index must be integer")
+            if dep_idx < 0 or dep_idx >= len(projects):
+                raise ValueError(f"Project {i}: Invalid dependency index {dep_idx}")
+            
+        project_graph[i] = depends_on
+    
+    # Detect cycles in project dependencies
+    if _has_cycle(project_graph):
+        raise ValueError("Project dependencies contain a cycle")
+    
+    # Validate task dependencies within each project
+    for project in projects:
+        if not isinstance(project, dict):
+            continue
+            
+        tasks = project.get("tasks", [])
+        task_graph = {}
+        
+        for j, task in enumerate(tasks):
+            if not isinstance(task, dict):
+                continue
+                
+            depends_on = task.get("depends_on", [])
+            if not isinstance(depends_on, list):
+                raise ValueError(f"Task {j} in project: 'depends_on' must be a list")
+                
+            for dep_idx in depends_on:
+                if not isinstance(dep_idx, int):
+                    raise ValueError(f"Task {j}: Dependency index must be integer")
+                if dep_idx < 0 or dep_idx >= len(tasks):
+                    raise ValueError(f"Task {j}: Invalid dependency index {dep_idx}")
+            
+            task_graph[j] = depends_on
+        
+        # Detect cycles in task dependencies
+        if _has_cycle(task_graph):
+            raise ValueError(f"Task dependencies in project contain a cycle")
+
+
+def _has_cycle(graph: dict) -> bool:
+    """Detect cycles in a dependency graph using DFS."""
+    visited = set()
+    rec_stack = set()
+    
+    def dfs(node):
+        visited.add(node)
+        rec_stack.add(node)
+        
+        for neighbor in graph.get(node, []):
+            if neighbor not in visited:
+                if dfs(neighbor):
+                    return True
+            elif neighbor in rec_stack:
+                return True
+                
+        rec_stack.remove(node)
+        return False
+    
+    for node in graph:
+        if node not in visited:
+            if dfs(node):
+                return True
+                
+    return False
 
 
 # ===========================================================================
@@ -483,6 +581,10 @@ tags (1-3 strings).
 **Description must be SMART-measurable — answer "How do I know this is done?":**
 - Coding tasks: end with "— deliverable: a commit with <result> and passing tests"
 - Non-coding tasks: end with "— deliverable: a <screenshot|photo|document> of <artifact>"
+
+- ``depends_on`` — OPTIONAL array of 0-based indices of prerequisite tasks
+  in the output array.  Use when a new task cannot start until another new
+  task is completed (sequential dependency).  Omit or set [] otherwise.
 
 Output ONLY a JSON array of task objects (no markdown fences):
 
