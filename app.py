@@ -72,13 +72,18 @@ def _save_plan_to_db(plan: dict):
     """Persist a decomposed plan into the database.
 
     Creates Tag, Project, Task, Subtask rows with relationships.
+    Also creates EntityDependency rows for project and task dependencies.
     """
     # 1. Shared tags
     for tag_name in plan.get("shared_tags", []):
         _get_or_create_tag(tag_name)
 
+    # Store created projects and tasks for dependency mapping
+    projects_db = []
+    tasks_db = []
+
     # 2. Projects → Tasks → Subtasks
-    for pdata in plan.get("problems", []):
+    for pidx, pdata in enumerate(plan.get("problems", [])):
         # Project-level tags
         proj_tags = []
         for tname in pdata.get("tags", []):
@@ -94,8 +99,10 @@ def _save_plan_to_db(plan: dict):
         project.tags = proj_tags
         db.session.add(project)
         db.session.flush()
+        projects_db.append(project)
 
-        for tdata in pdata.get("tasks", []):
+        project_tasks = []
+        for tidx, tdata in enumerate(pdata.get("tasks", [])):
             # Task-level tags
             task_tags = []
             for tname in tdata.get("tags", []):
@@ -111,6 +118,8 @@ def _save_plan_to_db(plan: dict):
             task.tags = task_tags
             db.session.add(task)
             db.session.flush()
+            project_tasks.append(task)
+            tasks_db.append(task)
 
             for sdata in tdata.get("subtasks", []):
                 # Subtask-level tags
@@ -127,6 +136,30 @@ def _save_plan_to_db(plan: dict):
                 )
                 subtask.tags = sub_tags
                 db.session.add(subtask)
+
+        # Create project dependencies
+        for dep_idx in pdata.get("depends_on", []):
+            if dep_idx < len(projects_db):
+                dep = models.EntityDependency(
+                    entity_type="project",
+                    entity_id=project.id,
+                    prerequisite_type="project",
+                    prerequisite_id=projects_db[dep_idx].id
+                )
+                db.session.add(dep)
+
+        # Create task dependencies
+        for tidx, tdata in enumerate(pdata.get("tasks", [])):
+            task = project_tasks[tidx]
+            for dep_idx in tdata.get("depends_on", []):
+                if dep_idx < len(project_tasks):
+                    dep = models.EntityDependency(
+                        entity_type="task",
+                        entity_id=task.id,
+                        prerequisite_type="task",
+                        prerequisite_id=project_tasks[dep_idx].id
+                    )
+                    db.session.add(dep)
 
     db.session.commit()
 

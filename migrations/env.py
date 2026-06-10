@@ -15,29 +15,51 @@ fileConfig(config.config_file_name)
 logger = logging.getLogger('alembic.env')
 
 
-def get_engine():
-    try:
-        # this works with Flask-SQLAlchemy<3 and Alchemical
-        return current_app.extensions['migrate'].db.get_engine()
-    except (TypeError, AttributeError):
-        # this works with Flask-SQLAlchemy>=3
-        return current_app.extensions['migrate'].db.engine
-
-
-def get_engine_url():
-    try:
-        return get_engine().url.render_as_string(hide_password=False).replace(
-            '%', '%%')
-    except AttributeError:
-        return str(get_engine().url).replace('%', '%%')
-
-
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-config.set_main_option('sqlalchemy.url', get_engine_url())
-target_db = current_app.extensions['migrate'].db
+
+
+def get_engine():
+    # Lazy import to avoid circular dependencies
+    import sys
+    from os.path import abspath, dirname
+    
+    # Add project root to Python path
+    sys.path.insert(0, dirname(dirname(abspath(__file__))))
+    
+    from app import create_app
+    app = create_app()
+    with app.app_context():
+        try:
+            # this works with Flask-SQLAlchemy<3 and Alchemical
+            return current_app.extensions['migrate'].db.get_engine()
+        except (TypeError, AttributeError):
+            # this works with Flask-SQLAlchemy>=3
+            return current_app.extensions['migrate'].db.engine
+
+
+def get_engine_url():
+    engine = get_engine()
+    try:
+        return engine.url.render_as_string(hide_password=False).replace('%', '%%')
+    except AttributeError:
+        return str(engine.url).replace('%', '%%')
+
+
+# Initialize within application context
+import sys
+from os.path import abspath, dirname
+
+# Add project root to Python path
+sys.path.insert(0, dirname(dirname(abspath(__file__))))
+
+from app import create_app
+app = create_app()
+with app.app_context():
+    config.set_main_option('sqlalchemy.url', get_engine_url())
+    target_db = current_app.extensions['migrate'].db
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
