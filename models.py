@@ -14,6 +14,7 @@ entity level via the polymorphic UserEntityRole table.
 
 from datetime import datetime, timezone
 from sqlalchemy import select, exists, and_, or_
+from sqlalchemy.ext.hybrid import hybrid_property
 
 from extensions import db
 
