@@ -172,12 +172,14 @@ def _save_plan_to_db(plan: dict):
 @app.route("/")
 def home():
     """Render the dashboard home page."""
-    projects = models.Project.query.filter_by(is_deleted=False).order_by(
-        models.Project.created.desc()
+    projects = models.Project.query.filter_by(
+        is_deleted=False, is_completed=False, is_blocked=False
+    ).order_by(
+        models.Project.priority, models.Project.created.desc()
     ).all()
     workflow_tasks = (
         models.Task.query
-        .filter_by(is_deleted=False, is_completed=False, is_archived=False)
+        .filter_by(is_deleted=False, is_completed=False, is_archived=False, is_blocked=False)
         .filter(models.Task.first_run.isnot(None))
         .order_by(models.Task.first_run.desc())
         .limit(10)
@@ -759,33 +761,38 @@ def project_merge(project_id):
 
 @app.route("/api/tasks")
 def api_tasks():
-    """Return all non-deleted tasks with their subtasks for the timer dropdown."""
+    """Return all non-deleted, non-blocked tasks with their subtasks."""
     tasks = (
         models.Task.query
-        .filter_by(is_deleted=False)
+        .filter_by(is_deleted=False, is_completed=False, is_blocked=False)
         .order_by(models.Task.priority, models.Task.created)
         .all()
     )
     result = []
     for task in tasks:
+        # Since we are not fixing the description issue, we use the project description
         project = models.Project.query.get(task.project_id)
+        task_description = project.description if project else "Untitled Task"
+
         subs = (
             models.Subtask.query
-            .filter_by(task_id=task.id, is_deleted=False)
+            .filter_by(task_id=task.id, is_deleted=False, is_completed=False)
             .order_by(models.Subtask.priority, models.Subtask.created)
             .all()
         )
         result.append({
             "id": task.id,
-            "description": project.description if project else "Untitled",
+            "description": task_description,
             "project_id": task.project_id,
-            "project_name": project.description if project else "Untitled",
+            "project_name": project.description if project else "Untitled Project",
             "estimated_time": task.estimated_time or 0,
+            "is_blocked": task.is_blocked,
             "subtasks": [
                 {
                     "id": s.id,
-                    "description": project.description if project else "Untitled",
+                    "description": task_description, # Using task description for subtask
                     "estimated_time": s.estimated_time or 0,
+                    "is_blocked": task.is_blocked,  # Subtask is blocked if parent is
                 }
                 for s in subs
             ],
@@ -1149,6 +1156,20 @@ def project_list():
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
+@app.route("/dependencies")
+def dependencies():
+    """Page to manage dependencies between projects and tasks."""
+    projects = models.Project.query.filter_by(is_deleted=False).order_by(models.Project.created.desc()).all()
+    tasks = models.Task.query.filter_by(is_deleted=False).order_by(models.Task.created.desc()).all()
+    dependencies = models.EntityDependency.query.all()
+    return render_template(
+        "dependencies.html",
+        projects=projects,
+        tasks=tasks,
+        dependencies=dependencies
+    )
+
 
 if __name__ == "__main__":
     app.run(debug=True)

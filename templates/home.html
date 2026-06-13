@@ -114,6 +114,7 @@
         .badge-active { background: #28a745; }
         .badge-done { background: #6c757d; }
         .badge-archived { background: #adb5bd; }
+        .badge-blocked { background: #343a40; }
 
         .btn-sm {
             padding: 4px 10px;
@@ -308,6 +309,7 @@
                     <div class="problem-row">
                         <span class="desc">{{ proj.description }}</span>
                         <span class="meta">
+                            {% if proj.is_blocked %}<span class="badge badge-blocked">BLOCKED</span>{% endif %}
                             <span class="badge badge-p{{ proj.priority }}">P{{ proj.priority }}</span>
                             {% if proj.is_completed %}
                                 <span class="badge badge-done">done</span>

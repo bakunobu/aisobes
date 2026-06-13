@@ -705,34 +705,37 @@ def refine_task(
     creds = _load_credentials(credentials)
 
     REFINE_TASK_PROMPT = """You are a task decomposition expert. Given a
-coarse task, break it into 2-4 finer-grained tasks, each with 1-4 subtasks.
-
-For each item provide: description, estimated_time (minutes), priority (1-5),
-tags (1-3 strings).
-
-**Description must be SMART-measurable — answer "How do I know this is done?":**
-- Coding tasks: end with "— deliverable: a commit with <result> and passing tests"
-- Non-coding tasks: end with "— deliverable: a <screenshot|photo|document> of <artifact>"
-
-Output ONLY a JSON array of task objects (no markdown fences):
-
-[
-    {
-        "description": "<task>",
-        "estimated_time": 120,
-        "priority": 3,
-        "tags": ["tag"],
-        "subtasks": [
-            {
-                "description": "<subtask>",
-                "estimated_time": 60,
-                "priority": 3,
-                "tags": ["tag"]
-            }
-        ]
-    }
-]
-"""
+    coarse task, break it into 2-4 finer-grained tasks, each with 1-4 subtasks.
+    
+    For each item provide: description, estimated_time (minutes), priority (1-5),
+    tags (1-3 strings), and depends_on (optional array of indices).
+    
+    **Description must be SMART-measurable — answer "How do I know this is done?":**
+    - Coding tasks: end with "— deliverable: a commit with <result> and passing tests"
+    - Non-coding tasks: end with "— deliverable: a <screenshot|photo|document> of <artifact>"
+    
+    **depends_on** — OPTIONAL array of 0-based indices of prerequisite tasks in the output array.
+    
+    Output ONLY a JSON array of task objects (no markdown fences):
+    
+    [
+        {
+            "description": "<task>",
+            "estimated_time": 120,
+            "priority": 3,
+            "tags": ["tag"],
+            "depends_on": [],
+            "subtasks": [
+                {
+                    "description": "<subtask>",
+                    "estimated_time": 60,
+                    "priority": 3,
+                    "tags": ["tag"]
+                }
+            ]
+        }
+    ]
+    """
 
     system_prompt = prompt if prompt is not None else REFINE_TASK_PROMPT
 

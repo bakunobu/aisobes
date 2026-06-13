@@ -78,6 +78,7 @@
         .badge-done { background: #28a745; }
         .badge-archived { background: #adb5bd; }
         .badge-workflow { background: #ffc107; color: #333; }
+        .badge-blocked { background: #343a40; }
 
         /* Buttons */
         .btn {
@@ -394,6 +395,7 @@
                        disabled title="Complete via timer tracking">
                 <div class="info">
                     <span class="task-id">#{{ task.id }}</span>
+                    {% if task.is_blocked %}<span class="badge badge-blocked">BLOCKED</span>{% endif %}
                     <span class="badge badge-p{{ task.priority }}">P{{ task.priority }}</span>
                     ⏱ {{ (task.estimated_time or 0) // 60 }} min
                     {% if task.tags %}
@@ -408,7 +410,7 @@
                 <div class="task-actions">
                     <button class="btn-sm btn-success" style="margin-right:4px;"
                             onclick="Timer.selectTask({{ task.id }}, null, 'Task #{{ task.id }}', {{ task.estimated_time or 0 }}); return false;"
-                            title="Start timer for this task">▶</button>
+                            title="Start timer for this task" {% if task.is_blocked %}disabled title="This task is blocked by another task or project." style="background: #ccc; cursor: not-allowed;"{% endif %}>▶</button>
                     <form action="/project/{{ project.id }}/task/{{ task.id }}/split"
                           method="post" style="display:inline;">
                         <input type="text" name="hint" placeholder="Hint (optional)"
@@ -435,6 +437,7 @@
                            disabled>
                     <div class="info">
                         <span class="task-id" style="font-size:10px;">sub #{{ sub.id }}</span>
+                        {% if task.is_blocked %}<span class="badge badge-blocked">BLOCKED</span>{% endif %}
                         <span class="badge badge-p{{ sub.priority }}">P{{ sub.priority }}</span>
                         ⏱ {{ (sub.estimated_time or 0) // 60 }} min
                         {% if sub.total_time_spent %}
@@ -443,7 +446,7 @@
                     </div>
                     <button class="btn-sm btn-success" style="margin-left:8px;"
                             onclick="Timer.selectTask(null, {{ sub.id }}, 'Subtask #{{ sub.id }}', {{ sub.estimated_time or 0 }}); return false;"
-                            title="Start timer for this subtask">▶</button>
+                            title="Start timer for this subtask" {% if task.is_blocked %}disabled title="This subtask is blocked by its parent task." style="background: #ccc; cursor: not-allowed;"{% endif %}>▶</button>
                 </li>
                 {% endfor %}
             </ul>
