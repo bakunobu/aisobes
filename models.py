@@ -150,7 +150,7 @@ class Project(db.Model):
     @is_blocked.expression
     def is_blocked(cls):
         return exists(
-            select([1])
+            select(1)
             .select_from(EntityDependency.__table__.join(
                 Project.__table__,
                 EntityDependency.prerequisite_id == Project.__table__.c.id,
@@ -254,7 +254,7 @@ class Task(db.Model):
     @is_blocked.expression
     def is_blocked(cls):
         task_block = exists(
-            select([1])
+            select(1)
             .select_from(EntityDependency.__table__.join(
                 Task.__table__,
                 EntityDependency.prerequisite_id == Task.__table__.c.id,
@@ -271,7 +271,7 @@ class Task(db.Model):
         )
 
         project_block = exists(
-            select([1])
+            select(1)
             .select_from(EntityDependency.__table__.join(
                 Project.__table__,
                 EntityDependency.prerequisite_id == Project.__table__.c.id,
@@ -289,7 +289,7 @@ class Task(db.Model):
 
         # Transitive: owner project blocked
         owner_block = exists(
-            select([1])
+            select(1)
             .select_from(EntityDependency.__table__.join(
                 Project.__table__,
                 EntityDependency.prerequisite_id == Project.__table__.c.id,
