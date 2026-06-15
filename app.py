@@ -1111,6 +1111,68 @@ def quest_toggle(quest_id):
     return redirect(url_for("quests_list"))
 
 
+@app.route("/api/session/create", methods=["POST"])
+def api_session_create():
+    """Create a new session plan."""
+    data = request.get_json()
+    
+    # Validate input
+    try:
+        duration = int(data.get("duration", 60))
+        intensity = data.get("intensity", "medium")
+        focus_project_id = data.get("focus_project_id")
+        diversity = data.get("diversity", "same")
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid input"}), 400
+    
+    # Get focus project name if exists
+    focus_project = None
+    if focus_project_id:
+        project = models.Project.query.get(focus_project_id)
+        focus_project = project.description if project else None
+    
+    # Generate plan
+    try:
+        plan = utils.generate_session_plan(
+            duration=duration,
+            intensity=intensity,
+            focus_project=focus_project,
+            diversity=diversity
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+    # Save to DB
+    session_plan = models.SessionPlan(
+        duration=duration,
+        intensity=intensity,
+        focus_project_id=focus_project_id,
+        diversity=diversity,
+        plan_json=json.dumps(plan)
+    )
+    db.session.add(session_plan)
+    db.session.commit()
+    
+    return jsonify({
+        "session_id": session_plan.id,
+        "tasks": plan
+    })
+
+
+@app.route("/api/session/<int:session_id>")
+def api_session_get(session_id):
+    """Get a session plan."""
+    session_plan = models.SessionPlan.query.get_or_404(session_id)
+    return jsonify({
+        "id": session_plan.id,
+        "duration": session_plan.duration,
+        "intensity": session_plan.intensity,
+        "focus_project_id": session_plan.focus_project_id,
+        "diversity": session_plan.diversity,
+        "tasks": json.loads(session_plan.plan_json)
+    })
+
+
 @app.route("/quests/<int:quest_id>/check", methods=["POST"])
 def quest_check(quest_id):
     """Check progress and log results."""

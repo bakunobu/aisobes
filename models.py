@@ -561,3 +561,23 @@ class QuestLog(db.Model):
     def __repr__(self):
         return f"<QuestLog {self.id} for quest={self.quest_id} ({self.event_type})>"
 
+
+# ===========================================================================
+# SessionPlan
+# ===========================================================================
+
+class SessionPlan(db.Model):
+    __tablename__ = "session_plans"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    duration = db.Column(db.Integer, nullable=False)       # minutes
+    intensity = db.Column(db.String(20), nullable=False)   # low | medium | high
+    focus_project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True)
+    diversity = db.Column(db.String(20), nullable=False)   # same | different
+    plan_json = db.Column(db.Text, nullable=False)         # JSON array of tasks
+    is_active = db.Column(db.Boolean, default=True)
+    created = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def __repr__(self):
+        return f"<SessionPlan {self.id}: {self.duration}min {self.intensity} intensity>"
+

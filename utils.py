@@ -663,6 +663,75 @@ Output ONLY a JSON array of task objects (no markdown fences):
 
 
 # ===========================================================================
+# Session Planning
+# ===========================================================================
+
+SESSION_PLAN_PROMPT = """You are an expert task planner. Given the user's parameters, create a sequence of 3-8 tasks that meet the requirements.
+
+Parameters:
+- Duration: {duration} minutes
+- Intensity: {intensity}
+- Focus: {focus_desc}
+- Diversity: {diversity}
+
+Rules:
+1. Each task must be concrete and measurable (e.g., "Implement login endpoint - deliverable: commit with passing tests")
+2. Tasks should be ordered by logical sequence
+3. Estimated time per task should be realistic
+4. Total estimated time should match session duration
+
+Output ONLY a JSON array of task objects (no markdown fences):
+[
+  {
+    "description": "Task description",
+    "estimated_minutes": 15
+  }
+]"""
+
+def generate_session_plan(
+    duration: int,
+    intensity: str,
+    focus_project: Optional[str],
+    diversity: str,
+    credentials: Optional[dict] = None,
+    timeout: int = 30
+) -> list[dict]:
+    """Generate session plan via LLM."""
+    creds = _load_credentials(credentials)
+    
+    # Build focus description
+    focus_desc = focus_project if focus_project else "None (any project)"
+    
+    # Format prompt
+    prompt = SESSION_PLAN_PROMPT.format(
+        duration=duration,
+        intensity=intensity,
+        focus_desc=focus_desc,
+        diversity=diversity
+    )
+    
+    # Call LLM
+    response = requests.post(
+        url=creds["api_url"],
+        headers={"Authorization": f"Bearer {creds['api_key']}"},
+        json={
+            "model": creds["model"],
+            "messages": [{"role": "user", "content": prompt}]
+        },
+        timeout=timeout
+    )
+    response.raise_for_status()
+    
+    # Parse response
+    raw_content = response.json()["choices"][0]["message"]["content"]
+    json_text = _extract_json(raw_content)
+    
+    try:
+        return json.loads(json_text)
+    except json.JSONDecodeError:
+        raise ValueError(f"Invalid JSON response: {raw_content}")
+
+# ===========================================================================
 # Legacy functions — kept for backwards compatibility
 # ===========================================================================
 
