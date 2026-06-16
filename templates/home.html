@@ -390,12 +390,11 @@
         </div>
 
         <!-- BLOCK 2: Countdown Timer -->
-        <div class="card timer-block">
+        <div class="card timer-block" style="grid-row: 2;">
             <div class="card-title">⏱ Timer</div>
             <select id="timer-task-select"
                     style="width:100%;padding:8px;margin-bottom:12px;border:1px solid #ccc;border-radius:4px;font-size:13px;box-sizing:border-box;">
                 <option value="">— Select a task —</option>
-            </select>
             <div style="position:relative;width:200px;height:200px;margin:0 auto 10px;">
                 <svg width="200" height="200" viewBox="0 0 300 300">
                     <circle class="progress-circle" cx="150" cy="150" r="140"
@@ -444,7 +443,7 @@
         </div>
 
         <!-- BLOCK 3: Schedule -->
-        <div class="card schedule-block">
+        <div class="card schedule-block" style="grid-row: 3;">
             <div class="card-title">📅 Workflow</div>
             <div class="schedule-list">
                 {% if workflow_tasks %}
@@ -536,5 +535,57 @@
     </div>
 
     <script src="/static/timer.js"></script>
+    <script>
+        // Session creation
+        document.getElementById('session-generate').addEventListener('click', async () => {
+            const duration = document.getElementById('session-duration').value;
+            const intensity = document.getElementById('session-intensity').value;
+            const focus = document.getElementById('session-focus').value;
+            const diversity = document.getElementById('session-diversity').value;
+            
+            const btn = document.getElementById('session-generate');
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+            
+            try {
+                const response = await fetch('/api/session/create', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        duration,
+                        intensity,
+                        focus_project_id: focus || null,
+                        diversity
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const tasksContainer = document.getElementById('session-tasks');
+                tasksContainer.innerHTML = '';
+                
+                data.tasks.forEach(task => {
+                    const taskEl = document.createElement('div');
+                    taskEl.style.padding = '8px';
+                    taskEl.style.borderBottom = '1px solid #eee';
+                    taskEl.innerHTML = `
+                        <div style="font-weight: 500;">${task.description}</div>
+                        <div style="font-size: 12px; color: #666;">Estimated: ${task.estimated_minutes} min</div>
+                    `;
+                    tasksContainer.appendChild(taskEl);
+                });
+                
+                document.getElementById('session-results').style.display = 'block';
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Generate Session Plan';
+            }
+        });
+    </script>
 </body>
 </html>
