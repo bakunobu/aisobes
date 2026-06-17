@@ -41,9 +41,80 @@
         /* --- Dashboard grid --- */
         .dashboard {
             display: grid;
-            grid-template-columns: 3fr 2fr;
-            grid-template-rows: auto 1fr;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto;
             gap: 16px;
+        }
+        
+        /* Right panel vertical stack */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        /* Workflow block - full width */
+        .workflow-block {
+            grid-column: 1 / -1;
+        }
+        
+        /* Compact stats */
+        .stats-compact {
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 16px;
+        }
+        .stats-compact .mood { font-size: 1.3em; }
+        .stats-compact .completion-bar {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .stats-compact .completion-fill {
+            height: 6px;
+            border-radius: 3px;
+            background: #28a745;
+        }
+        
+        /* Compact session */
+        .session-compact .form-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .session-compact .form-group {
+            flex: 1;
+        }
+        .session-compact label {
+            font-size: 11px;
+            color: #666;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .session-compact input,
+        .session-compact select {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .session-compact button {
+            padding: 6px 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .session-advanced {
+            display: none;
+            margin-top: 8px;
         }
         .dashboard > .card {
             background: #fff;
