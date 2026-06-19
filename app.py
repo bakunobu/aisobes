@@ -19,6 +19,14 @@ from flask_migrate import Migrate
 
 from extensions import db
 import utils
+from werkzeug.security import generate_password_hash, check_password_hash
+
+# Password hashing helpers
+def hash_password(password: str) -> str:
+    return generate_password_hash(password)
+
+def verify_password(password: str, password_hash: str) -> bool:
+    return check_password_hash(password_hash, password)
 
 # ---------------------------------------------------------------------------
 # Flask application factory
@@ -1214,6 +1222,99 @@ def project_list():
     """Alias — redirect to home (dashboard)."""
     return redirect(url_for("home"))
 
+# ---------------------------------------------------------------------------
+# User Authentication
+# ---------------------------------------------------------------------------
+
+from functools import wraps
+from flask import g
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user_id = session.get("user_id")
+        if user_id is None:
+            flash("Please log in first.", "error")
+            return redirect(url_for("user_page"))
+        g.user = models.User.query.get(user_id)
+        return f(*args, **kwargs)
+    return decorated
+@app.route("/user", methods=["GET"])
+def user_page():
+    """Render the combined login/register page."""
+    user_id = session.get("user_id")
+    user = None
+    if user_id:
+        user = models.User.query.get(user_id)
+    return render_template("user.html", user=user)
+
+@app.route("/register", methods=["POST"])
+def register():
+    """Handle new user registration."""
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip()
+    password = request.form.get("password", "")
+    confirm_password = request.form.get("confirm_password", "")
+
+    # Validate inputs
+    if not name or not email or not password:
+        flash("All fields are required", "error")
+        return redirect(url_for("user_page"))
+    if password != confirm_password:
+        flash("Passwords do not match", "error")
+        return redirect(url_for("user_page"))
+    if len(password) < 6:
+        flash("Password must be at least 6 characters", "error")
+        return redirect(url_for("user_page"))
+
+    # Check if email exists
+    if models.User.query.filter_by(email=email).first():
+        flash("Email already registered", "error")
+        return redirect(url_for("user_page"))
+
+    # Create user
+    user = models.User(
+        name=name,
+        email=email,
+        password_hash=hash_password(password),
+        role="user",
+        is_active=True
+    )
+    db.session.add(user)
+    db.session.commit()
+
+    # Log in user
+    session["user_id"] = user.id
+    flash(f"Welcome {name}! Account created successfully", "success")
+    return redirect(url_for("home"))
+
+@app.route("/login", methods=["POST"])
+def login():
+    """Handle user login."""
+    email = request.form.get("email", "").strip()
+    password = request.form.get("password", "")
+
+    user = models.User.query.filter_by(email=email).first()
+
+    if not user or not verify_password(password, user.password_hash):
+        flash("Invalid email or password", "error")
+        return redirect(url_for("user_page"))
+
+    # Log in user
+    session["user_id"] = user.id
+    user.last_login = datetime.now(timezone.utc)
+    db.session.commit()
+    
+    flash(f"Welcome back {user.name}!", "success")
+    return redirect(url_for("home"))
+
+@app.route("/logout")
+def logout():
+    """Handle user logout."""
+    session.pop("user_id", None)
+    flash("You have been logged out", "success")
+    return redirect(url_for("home"))
+
 
 # ---------------------------------------------------------------------------
 # Entry point
@@ -1231,6 +1332,7 @@ def dependencies():
         tasks=tasks,
         dependencies=dependencies
     )
+
 
 
 if __name__ == "__main__":

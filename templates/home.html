@@ -37,6 +37,15 @@
             font-weight: bold;
             color: #007bff;
         }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: auto;
+        }
+        .user-info span {
+            font-weight: bold;
+        }
 
         /* --- Dashboard grid --- */
         .dashboard {
@@ -374,6 +383,21 @@
     </style>
 </head>
 <body>
+
+    <div class="tabs">
+        <a href="/" class="active">Dashboard</a>
+        <a href="/decompose">Decompose</a>
+        <a href="/quests">Quests</a>
+        
+        {% if session.get('user_id') %}
+            <div class="user-info">
+                <span>{{ g.user.name }}</span>
+                <a href="{{ url_for('logout') }}">Logout</a>
+            </div>
+        {% else %}
+            <a href="{{ url_for('user_page') }}">Login / Register</a>
+        {% endif %}
+    </div>
 
     <div class="dashboard">
 
