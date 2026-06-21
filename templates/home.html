@@ -50,19 +50,72 @@
         /* --- Dashboard grid --- */
         .dashboard {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: auto auto;
+            grid-template-columns: 2fr 3fr;   /* 40% / 60% split */
+            grid-template-rows: 1fr;
+            height: calc(100vh - 120px);      /* Full viewport height minus header */
             gap: 16px;
         }
         
-        .workflow-block {
-            grid-column: 1 / -1;
-        }
-        
-        .right-panel {
+        .block-left, .block-right {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 16px;
+            height: 100%;
+            min-height: 0;  /* Prevent overflow */
+        }
+        
+        .projects-session-block {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            flex: 1;
+            min-height: 0;  /* Allow internal scrolling */
+        }
+        
+        .projects-section, .session-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;  /* Allow internal scrolling */
+        }
+        
+        .projects-section .list-body,
+        .workflow-block .schedule-list,
+        .log-block .log-body {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        
+        .timer-full {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        
+        .timer-full .timer-container {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+        }
+        
+        .timer-full svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto;
+                height: auto;
+            }
+            
+            .block-left, .block-right {
+                min-height: 50vh;
+            }
         }
         
         /* Right panel vertical stack */
@@ -400,86 +453,117 @@
     </div>
 
     <div class="dashboard">
-
-        <!-- Workflow Block (Row 1 - Full Width) -->
-        <div class="card workflow-block">
-            <div class="card-title">📅 Workflow</div>
-            <div class="schedule-list">
-                {% if workflow_tasks %}
-                    {% for task in workflow_tasks %}
-                    <div class="schedule-item">
-                        <input type="checkbox" class="cb-sm" disabled>
-                        <div class="info">
-                            <div class="subtitle">Task #{{ task.id }}</div>
-                            <div class="parent-info">Project: {{ task.project.description }}</div>
-                        </div>
-                        <span class="elapsed">↻ {{ format_elapsed(task.total_time_spent or 0) }}</span>
-                        <button class="btn-sm"
-                                style="background:#28a745;margin-left:6px;flex-shrink:0;"
-                                onclick="Timer.selectAndStart({{ task.id }}, null, 'Task #{{ task.id }}', {{ task.estimated_time or 0 }}); return false;"
-                                title="Start timer for this task">▶</button>
+        <!-- BLOCK 1 (40%) -->
+        <div class="block-left">
+            <div class="card projects-session-block">
+                <!-- Projects Section -->
+                <div class="projects-section">
+                    <div class="card-title">📋 Projects</div>
+                    <div class="list-toolbar">
+                        <input type="text" placeholder="Filter projects..." disabled>
+                        <a href="/decompose"><button class="btn-sm">+ New</button></a>
                     </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="empty-state">No tasks in workflow. Start a timer to begin tracking.</div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Projects Block (Row 2 - Left) -->
-        <div class="card problem-list">
-            <div class="card-title">📋 Projects</div>
-            <div class="list-toolbar">
-                <input type="text" placeholder="Filter projects..." disabled>
-                <a href="/decompose"><button class="btn-sm">+ New</button></a>
-            </div>
-            <div class="list-body">
-                {% if projects %}
-                    {% for proj in projects %}
-                    <div class="problem-row">
-                        <span class="desc">{{ proj.description }}</span>
-                        <span class="meta">
-                            {% if proj.is_blocked %}<span class="badge badge-blocked">BLOCKED</span>{% endif %}
-                            <span class="badge badge-p{{ proj.priority }}">P{{ proj.priority }}</span>
-                            {% if proj.is_completed %}
-                                <span class="badge badge-done">done</span>
-                            {% elif proj.is_archived %}
-                                <span class="badge badge-archived">archived</span>
-                            {% else %}
-                                <span class="badge badge-active">active</span>
-                            {% endif %}
-                            {% if proj.is_routine %}
-                                <span class="badge" style="background:#6f42c1;">🕐 routine</span>
-                            {% endif %}
-                            {% if not proj.is_routine %}
-                                <span>{{ proj.tasks.filter_by(is_deleted=False).count() }} tasks</span>
-                            {% else %}
-                                <span>{{ proj.routine_tasks.count() }} routines</span>
-                            {% endif %}
-                        </span>
-                        {% if proj.is_routine %}
-                            <a href="/project/{{ proj.id }}/routine"><button class="btn-sm">Open</button></a>
+                    <div class="list-body">
+                        {% if projects %}
+                            {% for proj in projects %}
+                            <div class="problem-row">
+                                <span class="desc">{{ proj.description }}</span>
+                                <span class="meta">
+                                    {% if proj.is_blocked %}<span class="badge badge-blocked">BLOCKED</span>{% endif %}
+                                    <span class="badge badge-p{{ proj.priority }}">P{{ proj.priority }}</span>
+                                    {% if proj.is_completed %}
+                                        <span class="badge badge-done">done</span>
+                                    {% elif proj.is_archived %}
+                                        <span class="badge badge-archived">archived</span>
+                                    {% else %}
+                                        <span class="badge badge-active">active</span>
+                                    {% endif %}
+                                    {% if proj.is_routine %}
+                                        <span class="badge" style="background:#6f42c1;">🕐 routine</span>
+                                    {% endif %}
+                                    {% if not proj.is_routine %}
+                                        <span>{{ proj.tasks.filter_by(is_deleted=False).count() }} tasks</span>
+                                    {% else %}
+                                        <span>{{ proj.routine_tasks.count() }} routines</span>
+                                    {% endif %}
+                                </span>
+                                {% if proj.is_routine %}
+                                    <a href="/project/{{ proj.id }}/routine"><button class="btn-sm">Open</button></a>
+                                {% else %}
+                                    <a href="/project/{{ proj.id }}"><button class="btn-sm">Open</button></a>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
                         {% else %}
-                            <a href="/project/{{ proj.id }}"><button class="btn-sm">Open</button></a>
+                            <div class="empty-state">No projects yet. Click <strong>+ New</strong> to create one.</div>
                         {% endif %}
                     </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="empty-state">No projects yet. Click <strong>+ New</strong> to create one.</div>
-                {% endif %}
+                </div>
+
+                <!-- Session Section -->
+                <div class="session-section">
+                    <div class="card-title">🎯 New Session</div>
+                    <div style="padding: 12px;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Duration (min)</label>
+                                <input type="number" id="session-duration" value="60" min="15" max="240">
+                            </div>
+                            <div class="form-group">
+                                <label>Intensity</label>
+                                <select id="session-intensity">
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Focus Project</label>
+                                <select id="session-focus">
+                                    <option value="">None (any project)</option>
+                                    {% for proj in projects %}
+                                        <option value="{{ proj.id }}">{{ proj.description }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Diversity</label>
+                                <select id="session-diversity">
+                                    <option value="same">Same project/domain</option>
+                                    <option value="different">Different projects/domains</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <button id="session-generate" style="width: 100%; margin-top: 12px; padding: 8px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            Generate Session Plan
+                        </button>
+                        
+                        <div id="session-results" style="margin-top: 12px; display: none;">
+                            <div class="card-title" style="font-size: 14px;">Session Plan</div>
+                            <div id="session-tasks" style="max-height: 200px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Right Panel (Row 2 - Right) -->
-        <div class="right-panel">
-            <!-- Timer Block (Top Card) -->
-            <div class="card timer-block">
+        <!-- BLOCK 2 (60%) -->
+        <div class="block-right">
+            <!-- Timer Block (Full-size) -->
+            <div class="card timer-full">
                 <div class="card-title">⏱ Timer</div>
                 <select id="timer-task-select"
                         style="width:100%;padding:8px;margin-bottom:12px;border:1px solid #ccc;border-radius:4px;font-size:13px;box-sizing:border-box;">
                     <option value="">— Select a task —</option>
-                <div style="position:relative;width:200px;height:200px;margin:0 auto 10px;">
-                    <svg width="200" height="200" viewBox="0 0 300 300">
+                <div class="timer-container">
+                    <svg viewBox="0 0 300 300">
                         <circle class="progress-circle" cx="150" cy="150" r="140"
                                 fill="none" stroke="#e0e0e0" stroke-width="8"
                                 stroke-dasharray="879.2" stroke-dashoffset="0"></circle>
@@ -505,72 +589,32 @@
                 </div>
             </div>
 
-            <!-- Stats Block (Compact) -->
-            <div class="card stats-block">
-                <div class="stats-compact">
-                    <div class="mood">😴</div>
-                    <div class="tasks">0/0</div>
-                    <div class="time">0m</div>
-                    <div class="completion-bar">
-                        <div class="completion-fill"></div>
-                        <span>0%</span>
-                    </div>
+            <!-- Workflow Block -->
+            <div class="card workflow-block">
+                <div class="card-title">📅 Workflow</div>
+                <div class="schedule-list">
+                    {% if workflow_tasks %}
+                        {% for task in workflow_tasks %}
+                        <div class="schedule-item">
+                            <input type="checkbox" class="cb-sm" disabled>
+                            <div class="info">
+                                <div class="subtitle">Task #{{ task.id }}</div>
+                                <div class="parent-info">Project: {{ task.project.description }}</div>
+                            </div>
+                            <span class="elapsed">↻ {{ format_elapsed(task.total_time_spent or 0) }}</span>
+                            <button class="btn-sm"
+                                    style="background:#28a745;margin-left:6px;flex-shrink:0;"
+                                    onclick="Timer.selectAndStart({{ task.id }}, null, 'Task #{{ task.id }}', {{ task.estimated_time or 0 }}); return false;"
+                                    title="Start timer for this task">▶</button>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">No tasks in workflow. Start a timer to begin tracking.</div>
+                    {% endif %}
                 </div>
             </div>
 
-            <!-- Session Block (Compact) -->
-            <div class="card session-compact">
-                <div class="card-title">🎯 Create Session</div>
-                <div style="padding: 12px;">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Duration (min)</label>
-                            <input type="number" id="session-duration" value="60" min="15" max="240">
-                        </div>
-                        <div class="form-group">
-                            <label>Intensity</label>
-                            <select id="session-intensity">
-                                <option value="low">Low</option>
-                                <option value="medium" selected>Medium</option>
-                                <option value="high">High</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Focus Project</label>
-                            <select id="session-focus">
-                                <option value="">None (any project)</option>
-                                {% for proj in projects %}
-                                    <option value="{{ proj.id }}">{{ proj.description }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Diversity</label>
-                            <select id="session-diversity">
-                                <option value="same">Same project/domain</option>
-                                <option value="different">Different projects/domains</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <button id="session-generate" style="width: 100%; margin-top: 12px; padding: 8px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                        Generate Session Plan
-                    </button>
-                    
-                    <div id="session-results" style="margin-top: 12px; display: none;">
-                        <div class="card-title" style="font-size: 14px;">Session Plan</div>
-                        <div id="session-tasks" style="max-height: 200px; overflow-y: auto;"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Log Block (Bottom Card) -->
+            <!-- Log Block -->
             <div class="card log-block">
                 <div class="card-title">📜 Activity Log</div>
                 <div class="log-body">
