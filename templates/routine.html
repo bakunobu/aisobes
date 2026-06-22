@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ project.description }} — Routine Tasks</title>
+    <style>
+        /* ===================================================================
+           Base & Layout
+           =================================================================== */
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        /* --- Breadcrumb --- */
+        .breadcrumb {
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #888;
+        }
+        .breadcrumb a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        /* --- Page header --- */
+        .page-header {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+        }
+        .page-header h1 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            color: #333;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .badge-routine { background: #6f42c1; }
+        .badge-active { background: #28a745; }
+        .badge-inactive { background: #6c757d; }
+        .badge-p1 { background: #dc3545; }
+        .badge-p2 { background: #fd7e14; }
+        .badge-p3 { background: #ffc107; color: #333; }
+        .badge-p4 { background: #17a2b8; }
+        .badge-p5 { background: #6c757d; }
+
+        /* --- Card --- */
+        .card {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 15px;
+            font-weight: bold;
+            color: #333;
+            margin: 0 0 16px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* --- Form --- */
+        .form-group {
+            margin-bottom: 12px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 4px;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="time"],
+        .form-group input[type="number"],
+        .form-group input[type="date"],
+        .form-group textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+        .form-row {
+            display: flex;
+            gap: 12px;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        /* --- Day checkboxes --- */
+        .day-checkboxes {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .day-checkboxes label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            background: #f8f9fa;
+            user-select: none;
+        }
+        .day-checkboxes label:has(input:checked) {
+            background: #e8d5ff;
+            border-color: #6f42c1;
+            color: #6f42c1;
+            font-weight: bold;
+        }
+        .day-checkboxes input[type="checkbox"] {
+            margin: 0;
+        }
+
+        /* --- Buttons --- */
+        .btn {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background: #007bff;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #0069d9; }
+        .btn-secondary {
+            background: #6c757d;
+            color: #fff;
+        }
+        .btn-secondary:hover { background: #5a6268; }
+        .btn-danger {
+            background: #dc3545;
+            color: #fff;
+        }
+        .btn-danger:hover { background: #c82333; }
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 12px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .btn-edit {
+            background: #ffc107;
+            color: #333;
+        }
+        .btn-delete {
+            background: #dc3545;
+            color: #fff;
+        }
+        .btn-cancel {
+            background: #6c757d;
+            color: #fff;
+        }
+
+        /* --- Task list --- */
+        .routine-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .routine-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 14px 16px;
+            margin-bottom: 8px;
+            background: #fafafa;
+        }
+        .routine-item.inactive {
+            opacity: 0.55;
+        }
+        .routine-item .top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .routine-item .desc {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            flex: 1;
+        }
+        .routine-item .schedule {
+            font-size: 12px;
+            color: #666;
+            margin-top: 6px;
+        }
+        .routine-item .schedule strong {
+            color: #333;
+        }
+        .routine-item .date-range {
+            font-size: 11px;
+            color: #999;
+            margin-top: 4px;
+        }
+        .routine-item .actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        /* --- Edit form (inline) --- */
+        .edit-form {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .edit-form .form-row {
+            margin-bottom: 12px;
+        }
+        .edit-form .btn-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* --- Flash messages --- */
+        .flash {
+            padding: 10px 16px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            font-size: 13px;
+        }
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .flash-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* --- Empty state --- */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+            font-size: 14px;
+        }
+
+        /* --- Compact toggle --- */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #555;
+        }
+        .toggle-row input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="breadcrumb">
+        <a href="/">← Dashboard</a>
+        &nbsp;|&nbsp;
+        <a href="{{ url_for('project_reminders', project_id=project.id) }}">🔔 Reminders</a>
+    </div>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, msg in messages %}
+                <div class="flash flash-{{ category }}">{{ msg }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Page header -->
+    <div class="page-header">
+        <h1>
+            🕐 {{ project.description }}
+            <span class="badge badge-routine">routine</span>
+            <span class="badge badge-p{{ project.priority }}">P{{ project.priority }}</span>
+        </h1>
+        <div style="font-size:13px;color:#888;">
+            Routine project — fixed-schedule recurring tasks
+            &nbsp;|&nbsp;
+            <a href="{{ url_for('project_reminders', project_id=project.id) }}">Switch to Reminders</a>
+        </div>
+    </div>
+
+    <!-- Create form -->
+    <div class="card">
+        <div class="card-title">➕ New Routine Task</div>
+        <form method="POST" action="/project/{{ project.id }}/routine/create">
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" placeholder="e.g. Morning standup meeting" required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Days of Week</label>
+                <div class="day-checkboxes">
+                    {% for day in day_names %}
+                    <label>
+                        <input type="checkbox" name="days_of_week" value="{{ day }}">
+                        {{ day[:2] }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Time of Day</label>
+                    <input type="time" name="time_of_day" value="09:00">
+                </div>
+                <div class="form-group">
+                    <label>Duration (minutes)</label>
+                    <input type="number" name="duration" value="30" min="1" max="480">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Start Date (optional)</label>
+                    <input type="date" name="start_date">
+                </div>
+                <div class="form-group">
+                    <label>End Date (optional)</label>
+                    <input type="date" name="end_date">
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Create Routine Task</button>
+        </form>
+    </div>
+
+    <!-- Routine task list -->
+    <div class="card">
+        <div class="card-title">📋 Routine Tasks ({{ routine_tasks|length }})</div>
+
+        {% if routine_tasks %}
+            <ul class="routine-list">
+                {% for rt in routine_tasks %}
+                <li class="routine-item {% if not rt.is_active %}inactive{% endif %}"
+                    id="routine-{{ rt.id }}">
+                    <div class="top-row">
+                        <div>
+                            <div class="desc">{{ rt.description }}</div>
+                            <div class="schedule">
+                                {% if rt.days_of_week %}
+                                    <strong>🕐 {{ rt.days_of_week }}</strong>
+                                {% else %}
+                                    <strong>🕐 (unscheduled)</strong>
+                                {% endif %}
+                                &nbsp;⏰ {{ rt.time_of_day }}
+                                &nbsp;⏱ {{ rt.duration }} min
+                            </div>
+                            {% if rt.start_date or rt.end_date %}
+                            <div class="date-range">
+                                {% if rt.start_date %}From {{ rt.start_date }}{% endif %}
+                                {% if rt.end_date %} → {{ rt.end_date }}{% endif %}
+                            </div>
+                            {% endif %}
+                            {% if not rt.is_active %}
+                            <div style="font-size:11px;color:#999;margin-top:2px;">Inactive</div>
+                            {% endif %}
+                        </div>
+                        <div class="actions">
+                            <button class="btn-sm btn-edit"
+                                    onclick="toggleEdit({{ rt.id }})">Edit</button>
+                            <form method="POST"
+                                  action="/project/{{ project.id }}/routine/{{ rt.id }}/delete"
+                                  style="display:inline;"
+                                  onsubmit="return confirm('Delete this routine task?');">
+                                <button type="submit" class="btn-sm btn-delete">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Inline edit form (hidden by default) -->
+                    <div class="edit-form" id="edit-form-{{ rt.id }}" style="display:none;">
+                        <form method="POST"
+                              action="/project/{{ project.id }}/routine/{{ rt.id }}/edit">
+                            <div class="form-group">
+                                <label>Description</label>
+                                <textarea name="description" required>{{ rt.description }}</textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Days of Week</label>
+                                <div class="day-checkboxes">
+                                    {% set rt_days = rt.days_of_week.split(',') if rt.days_of_week else [] %}
+                                    {% for day in day_names %}
+                                    <label>
+                                        <input type="checkbox" name="days_of_week"
+                                               value="{{ day }}"
+                                               {% if day in rt_days %}checked{% endif %}>
+                                        {{ day[:2] }}
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Time of Day</label>
+                                    <input type="time" name="time_of_day"
+                                           value="{{ rt.time_of_day }}">
+                                </div>
+                                <div class="form-group">
+                                    <label>Duration (minutes)</label>
+                                    <input type="number" name="duration"
+                                           value="{{ rt.duration }}" min="1" max="480">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Start Date (optional)</label>
+                                    <input type="date" name="start_date"
+                                           value="{{ rt.start_date or '' }}">
+                                </div>
+                                <div class="form-group">
+                                    <label>End Date (optional)</label>
+                                    <input type="date" name="end_date"
+                                           value="{{ rt.end_date or '' }}">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="toggle-row">
+                                    <input type="checkbox" name="is_active" value="1"
+                                           {% if rt.is_active %}checked{% endif %}>
+                                    <label>Active</label>
+                                </div>
+                            </div>
+
+                            <div class="btn-row">
+                                <button type="submit" class="btn btn-primary">Save</button>
+                                <button type="button" class="btn btn-cancel"
+                                        onclick="toggleEdit({{ rt.id }})">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="empty-state">
+                No routine tasks yet. Create one above.
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        /**
+         * Toggle visibility of the inline edit form for a routine task.
+         */
+        function toggleEdit(taskId) {
+            var form = document.getElementById('edit-form-' + taskId);
+            if (form.style.display === 'none' || form.style.display === '') {
+                form.style.display = 'block';
+            } else {
+                form.style.display = 'none';
+            }
+        }
+    </script>
+
+</body>
+</html>

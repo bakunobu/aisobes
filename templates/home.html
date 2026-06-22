@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Organizer — Dashboard</title>
+    <style>
+        /* ===================================================================
+           Base & Layout
+           =================================================================== */
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        /* --- Tabs (shared style) --- */
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        .tabs a {
+            text-decoration: none;
+            padding: 10px 20px;
+            color: #333;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            background: #f5f5f5;
+        }
+        .tabs a.active {
+            background: #fff;
+            border-bottom: 2px solid #fff;
+            margin-bottom: -2px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: auto;
+        }
+        .user-info span {
+            font-weight: bold;
+        }
+
+        /* --- Dashboard grid --- */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 2fr 3fr;   /* 40% / 60% split */
+            grid-template-rows: 1fr;
+            height: calc(100vh - 120px);      /* Full viewport height minus header */
+            gap: 16px;
+        }
+        
+        .block-left, .block-right {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            height: 100%;
+            min-height: 0;  /* Prevent overflow */
+        }
+        
+        .projects-session-block {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            flex: 1;
+            min-height: 0;  /* Allow internal scrolling */
+        }
+        
+        .projects-section, .session-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;  /* Allow internal scrolling */
+        }
+        
+        .projects-section .list-body,
+        .workflow-block .schedule-list,
+        .log-block .log-body {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        
+        .timer-full {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        
+        .timer-full .timer-container {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+        }
+        
+        .timer-full svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto;
+                height: auto;
+            }
+            
+            .block-left, .block-right {
+                min-height: 50vh;
+            }
+        }
+        
+        /* Right panel vertical stack */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        /* Workflow block - full width */
+        .workflow-block {
+            grid-column: 1 / -1;
+        }
+        
+        /* Compact stats */
+        .stats-compact {
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 16px;
+        }
+        .stats-compact .mood { font-size: 1.3em; }
+        .stats-compact .completion-bar {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .stats-compact .completion-fill {
+            height: 6px;
+            border-radius: 3px;
+            background: #28a745;
+        }
+        
+        /* Compact session */
+        .session-compact .form-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .session-compact .form-group {
+            flex: 1;
+        }
+        .session-compact label {
+            font-size: 11px;
+            color: #666;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .session-compact input,
+        .session-compact select {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .session-compact button {
+            padding: 6px 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .session-advanced {
+            display: none;
+            margin-top: 8px;
+        }
+        .dashboard > .card {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 16px;
+            overflow: hidden;
+        }
+
+        /* --- Card title bar --- */
+        .card-title {
+            font-size: 15px;
+            font-weight: bold;
+            color: #333;
+            margin: 0 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* ===================================================================
+           Block 1: Problem List (left, rows 1-2)
+           =================================================================== */
+        .problem-list {
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+        }
+        .problem-list .list-body {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 480px;
+        }
+        .problem-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        .problem-row:last-child { border-bottom: none; }
+        .problem-row .desc {
+            flex: 1;
+            color: #333;
+            font-weight: 500;
+        }
+        .problem-row .meta {
+            font-size: 11px;
+            color: #888;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .badge-p1 { background: #dc3545; }
+        .badge-p2 { background: #fd7e14; }
+        .badge-p3 { background: #ffc107; color: #333; }
+        .badge-p4 { background: #17a2b8; }
+        .badge-p5 { background: #6c757d; }
+        .badge-active { background: #28a745; }
+        .badge-done { background: #6c757d; }
+        .badge-archived { background: #adb5bd; }
+        .badge-blocked { background: #343a40; }
+
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 11px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            background: #007bff;
+            color: #fff;
+        }
+        .btn-sm:hover { background: #0056b3; }
+
+        .list-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .list-toolbar input {
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 180px;
+        }
+
+        /* ===================================================================
+           Block 2: Countdown Timer (right-top)
+           =================================================================== */
+        .timer-block {
+            text-align: center;
+        }
+        .timer-display {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 2px;
+            cursor: pointer;
+        }
+        .timer-label {
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 10px;
+            min-height: 18px;
+        }
+        .timer-controls {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+        .btn-timer {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .btn-timer:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-start  { background: #28a745; }
+        .btn-start:hover:not(:disabled)  { background: #218838; }
+        .btn-pause  { background: #ffc107; color: #333; }
+        .btn-pause:hover:not(:disabled)  { background: #e0a800; }
+        .btn-stop  { background: #dc3545; }
+        .btn-stop:hover:not(:disabled)  { background: #c82333; }
+
+        /* Completion bar colour coding */
+        .completion-bar.high-completion span { color: #28a745; }
+        .completion-bar.medium-completion span { color: #ffc107; }
+        .completion-bar.low-completion span { color: #dc3545; }
+
+        /* ===================================================================
+           Block 3: Schedule (right-middle)
+           =================================================================== */
+        .schedule-block .schedule-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .schedule-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        .schedule-item:last-child { border-bottom: none; }
+        .schedule-item .info { flex: 1; }
+        .schedule-item .subtitle { font-weight: 600; }
+        .schedule-item .parent-info {
+            font-size: 11px;
+            color: #888;
+        }
+        .schedule-item .elapsed {
+            font-size: 12px;
+            color: #555;
+            font-family: 'Courier New', monospace;
+            white-space: nowrap;
+        }
+        .cb-sm {
+            width: 16px; height: 16px;
+            cursor: pointer;
+            accent-color: #28a745;
+            flex-shrink: 0;
+        }
+        .empty-state {
+            color: #aaa;
+            font-size: 13px;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        /* ===================================================================
+           Block 4: Log Window (bottom-left)
+           =================================================================== */
+        .log-block .log-body {
+            max-height: 180px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .log-entry {
+            display: flex;
+            gap: 10px;
+            padding: 4px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .log-entry .time {
+            color: #888;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .log-entry .msg { color: #333; }
+        .log-type-promote  { color: #6f42c1; font-weight: 600; }
+        .log-type-split    { color: #fd7e14; font-weight: 600; }
+        .log-type-merge    { color: #17a2b8; font-weight: 600; }
+        .log-type-complete  { color: #28a745; font-weight: 600; }
+        .log-type-archive  { color: #6c757d; font-weight: 600; }
+
+        /* ===================================================================
+           Block 5: Statistics (bottom-right)
+           =================================================================== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 12px;
+            text-align: center;
+        }
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-card .label {
+            font-size: 11px;
+            color: #888;
+            margin-top: 2px;
+        }
+        .stat-card.highlight .value { color: #28a745; }
+
+        /* ===================================================================
+           Responsive fallback
+           =================================================================== */
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            .problem-list { grid-row: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="tabs">
+        <a href="/" class="active">Dashboard</a>
+        <a href="/decompose">Decompose</a>
+        <a href="/quests">Quests</a>
+        
+        {% if session.get('user_id') %}
+            <div class="user-info">
+                <span>{{ g.user.name }}</span>
+                <a href="{{ url_for('logout') }}">Logout</a>
+            </div>
+        {% else %}
+            <a href="{{ url_for('user_page') }}">Login / Register</a>
+        {% endif %}
+    </div>
+
+    <div class="dashboard">
+        <!-- BLOCK 1 (40%) -->
+        <div class="block-left">
+            <div class="card projects-session-block">
+                <!-- Projects Section -->
+                <div class="projects-section">
+                    <div class="card-title">📋 Projects</div>
+                    <div class="list-toolbar">
+                        <input type="text" placeholder="Filter projects..." disabled>
+                        <a href="/decompose"><button class="btn-sm">+ New</button></a>
+                    </div>
+                    <div class="list-body">
+                        {% if projects %}
+                            {% for proj in projects %}
+                            <div class="problem-row">
+                                <span class="desc">{{ proj.description }}</span>
+                                <span class="meta">
+                                    {% if proj.is_blocked %}<span class="badge badge-blocked">BLOCKED</span>{% endif %}
+                                    <span class="badge badge-p{{ proj.priority }}">P{{ proj.priority }}</span>
+                                    {% if proj.is_completed %}
+                                        <span class="badge badge-done">done</span>
+                                    {% elif proj.is_archived %}
+                                        <span class="badge badge-archived">archived</span>
+                                    {% else %}
+                                        <span class="badge badge-active">active</span>
+                                    {% endif %}
+                                    {% if proj.is_routine %}
+                                        <span class="badge" style="background:#6f42c1;">🕐 routine</span>
+                                    {% endif %}
+                                    {% if not proj.is_routine %}
+                                        <span>{{ proj.tasks.filter_by(is_deleted=False).count() }} tasks</span>
+                                    {% else %}
+                                        <span>{{ proj.routine_tasks.count() }} routines</span>
+                                    {% endif %}
+                                </span>
+                                {% if proj.is_routine %}
+                                    <a href="/project/{{ proj.id }}/routine"><button class="btn-sm">Open</button></a>
+                                {% else %}
+                                    <a href="/project/{{ proj.id }}"><button class="btn-sm">Open</button></a>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty-state">No projects yet. Click <strong>+ New</strong> to create one.</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Session Section -->
+                <div class="session-section">
+                    <div class="card-title">🎯 New Session</div>
+                    <div style="padding: 12px;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Duration (min)</label>
+                                <input type="number" id="session-duration" value="60" min="15" max="240">
+                            </div>
+                            <div class="form-group">
+                                <label>Intensity</label>
+                                <select id="session-intensity">
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Focus Project</label>
+                                <select id="session-focus">
+                                    <option value="">None (any project)</option>
+                                    {% for proj in projects %}
+                                        <option value="{{ proj.id }}">{{ proj.description }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Diversity</label>
+                                <select id="session-diversity">
+                                    <option value="same">Same project/domain</option>
+                                    <option value="different">Different projects/domains</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <button id="session-generate" style="width: 100%; margin-top: 12px; padding: 8px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            Generate Session Plan
+                        </button>
+                        
+                        <div id="session-results" style="margin-top: 12px; display: none;">
+                            <div class="card-title" style="font-size: 14px;">Session Plan</div>
+                            <div id="session-tasks" style="max-height: 200px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BLOCK 2 (60%) -->
+        <div class="block-right">
+            <!-- Timer Block (Full-size) -->
+            <div class="card timer-full">
+                <div class="card-title">⏱ Timer</div>
+                <select id="timer-task-select"
+                        style="width:100%;padding:8px;margin-bottom:12px;border:1px solid #ccc;border-radius:4px;font-size:13px;box-sizing:border-box;">
+                    <option value="">— Select a task —</option>
+                <div class="timer-container">
+                    <svg viewBox="0 0 300 300">
+                        <circle class="progress-circle" cx="150" cy="150" r="140"
+                                fill="none" stroke="#e0e0e0" stroke-width="8"
+                                stroke-dasharray="879.2" stroke-dashoffset="0"></circle>
+                        <circle class="progress-arc" cx="150" cy="150" r="140"
+                                fill="none" stroke="#007bff" stroke-width="8"
+                                stroke-dasharray="879.2" stroke-dashoffset="879.2"
+                                transform="rotate(-90 150 150)"
+                                style="transition: stroke-dashoffset 0.5s linear;"></circle>
+                        <circle class="progress-point" cx="150" cy="10" r="8"
+                                fill="#dc3545"></circle>
+                    </svg>
+                    <div style="position:absolute;top:0;left:0;width:100%;height:100%;
+                                display:flex;flex-direction:column;justify-content:center;align-items:center;">
+                        <div id="timer-clock" class="timer-display"
+                             title="Click to set time">00:00:00</div>
+                    </div>
+                </div>
+                <div id="timer-label" class="timer-label">No task selected</div>
+                <div class="timer-controls">
+                    <button id="timer-start" class="btn-timer btn-start">▶ Start</button>
+                    <button id="timer-pause" class="btn-timer btn-pause" disabled>⏸ Pause</button>
+                    <button id="timer-stop" class="btn-timer btn-stop" disabled>■ Stop</button>
+                </div>
+            </div>
+
+            <!-- Workflow Block -->
+            <div class="card workflow-block">
+                <div class="card-title">📅 Workflow</div>
+                <div class="schedule-list">
+                    {% if workflow_tasks %}
+                        {% for task in workflow_tasks %}
+                        <div class="schedule-item">
+                            <input type="checkbox" class="cb-sm" disabled>
+                            <div class="info">
+                                <div class="subtitle">Task #{{ task.id }}</div>
+                                <div class="parent-info">Project: {{ task.project.description }}</div>
+                            </div>
+                            <span class="elapsed">↻ {{ format_elapsed(task.total_time_spent or 0) }}</span>
+                            <button class="btn-sm"
+                                    style="background:#28a745;margin-left:6px;flex-shrink:0;"
+                                    onclick="Timer.selectAndStart({{ task.id }}, null, 'Task #{{ task.id }}', {{ task.estimated_time or 0 }}); return false;"
+                                    title="Start timer for this task">▶</button>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">No tasks in workflow. Start a timer to begin tracking.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Log Block -->
+            <div class="card log-block">
+                <div class="card-title">📜 Activity Log</div>
+                <div class="log-body">
+                    <div class="log-entry">
+                        <span class="time">15:42</span>
+                        <span class="msg">
+                            <span class="log-type-complete">[complete]</span>
+                            Subtask "Add JWT token refresh" marked done
+                        </span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="time">15:30</span>
+                        <span class="msg">
+                            <span class="log-type-split">[split]</span>
+                            Task "Build notification service" split into 3 subtasks
+                        </span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="time">14:55</span>
+                        <span class="msg">
+                            <span class="log-type-promote">[promote]</span>
+                            Subtask "Set up email provider" promoted to Task
+                        </span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="time">14:20</span>
+                        <span class="msg">
+                            <span class="log-type-archive">[archive]</span>
+                            Project "Set up CI/CD pipeline" archived
+                        </span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="time">13:45</span>
+                        <span class="msg">
+                            <span class="log-type-complete">[complete]</span>
+                            Project "Migrate database to PostgreSQL" completed
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/timer.js"></script>
+    <script>
+        // Session creation
+        document.getElementById('session-generate').addEventListener('click', async () => {
+            const duration = document.getElementById('session-duration').value;
+            const intensity = document.getElementById('session-intensity').value;
+            const focus = document.getElementById('session-focus').value;
+            const diversity = document.getElementById('session-diversity').value;
+            
+            const btn = document.getElementById('session-generate');
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+            
+            try {
+                const response = await fetch('/api/session/create', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        duration,
+                        intensity,
+                        focus_project_id: focus || null,
+                        diversity
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const tasksContainer = document.getElementById('session-tasks');
+                tasksContainer.innerHTML = '';
+                
+                data.tasks.forEach(task => {
+                    const taskEl = document.createElement('div');
+                    taskEl.style.padding = '8px';
+                    taskEl.style.borderBottom = '1px solid #eee';
+                    taskEl.innerHTML = `
+                        <div style="font-weight: 500;">${task.description}</div>
+                        <div style="font-size: 12px; color: #666;">Estimated: ${task.estimated_minutes} min</div>
+                    `;
+                    tasksContainer.appendChild(taskEl);
+                });
+                
+                document.getElementById('session-results').style.display = 'block';
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Generate Session Plan';
+            }
+        });
+    </script>
+</body>
+</html>

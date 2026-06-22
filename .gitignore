@@ -4,3 +4,6 @@ venv/
 #env file
 .env
 llm_responses/
+instance/
+migrations/__pycache__
+__pycache__/
